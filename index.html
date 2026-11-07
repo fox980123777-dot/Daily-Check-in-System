@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>每日打卡</title>
+</head>
+<body>
+
+    <h1>我的每日打卡</h1>
+    <button id="checkin-btn">今天打卡</button>
+    <p id="status">尚未打卡</p>
+
+<script>
+    console.log("JS 開始執行了 !");
+    const button = document.getElementById("checkin-btn");
+    const statusText = document.getElementById("status");
+
+    // 第 3 階段：頁面一載入，先去 localStorage 看有沒有打卡紀錄
+    const saved = localStorage.getItem("checkedIn");
+    console.log("讀到的資料：", saved);
+
+    if (saved === "yes") {
+        statusText.textContent = "已打卡";
+    }
+
+    button.addEventListener("click", function() {
+        statusText.textContent = "已打卡";
+        // 第 3 階段：把打卡結果存起來，重新整理後還會在
+        localStorage.setItem("checkedIn", "yes");
+        console.log("打卡成功 !");
+    });
+
+</script>
+</body>
+</html>
