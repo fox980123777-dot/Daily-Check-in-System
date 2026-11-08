@@ -614,10 +614,10 @@
         <form id="add-form">
             <h3 id="dialog-title">新增習慣</h3>
             <label class="field">名稱
-                <input id="input-name" required maxlength="30" placeholder="例如：冥想 10 分鐘">
+                <input id="input-name" required maxlength="30" placeholder="請輸入名稱">
             </label>
             <label class="field">小字說明（可以不填）
-                <input id="input-note" maxlength="30" placeholder="例如：放鬆心情">
+                <input id="input-note" maxlength="30" placeholder="請輸入小字說明">
             </label>
             <!-- 圖示下拉選單：按一下打開，選好之後自動收起來 -->
             <div class="field">圖示
@@ -1194,8 +1194,6 @@
         document.getElementById("dialog-title").textContent = (isEdit ? "編輯" : "新增") + typeName;
         document.getElementById("submit-btn").textContent = isEdit ? "儲存" : "新增";
         document.getElementById("date-fields").hidden = (type !== "goal");
-        document.getElementById("input-name").placeholder =
-            type === "goal" ? "請輸入名稱" : "請輸入名稱";
 
         if (isEdit) {
             // 編輯：把原本的內容填進去
