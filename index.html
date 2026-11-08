@@ -2,33 +2,282 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- viewport-fit=cover：讓畫面延伸到 iPhone 瀏海、圓角區域 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>每日打卡</title>
+
+    <!-- 加到手機主畫面時用的設定 -->
+    <meta name="theme-color" content="#16a34a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="每日打卡">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="icon-180.png">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="manifest" href="manifest.json">
+
+    <style>
+        /* 顏色統一寫在這裡，之後想換顏色只要改這幾行 */
+        :root {
+            --bg: #f3f4f6;
+            --card: #ffffff;
+            --text: #111827;
+            --muted: #6b7280;
+            --green: #16a34a;
+            --green-light: #dcfce7;
+        }
+
+        /* 手機設定成深色模式時，自動換成深色 */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #111827;
+                --card: #1f2937;
+                --text: #f9fafb;
+                --muted: #9ca3af;
+                --green-light: #14532d;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            /* 上下左右留空間，避開 iPhone 瀏海和底部橫條 */
+            padding: calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+            display: flex;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent; /* 點按鈕時不要出現灰色方框 */
+        }
+
+        .app {
+            width: 100%;
+            max-width: 420px; /* 電腦上看也不會拉得太寬 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+        }
+
+        h1 {
+            margin: 8px 0 0;
+            font-size: 26px;
+        }
+
+        #today {
+            margin: -16px 0 0;
+            color: var(--muted);
+        }
+
+        /* 連續天數卡片 */
+        .card {
+            width: 100%;
+            background: var(--card);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        }
+
+        .streak-label {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .streak-number {
+            margin: 4px 0 0;
+            font-size: 64px;
+            font-weight: bold;
+            line-height: 1.1;
+        }
+
+        .streak-number small {
+            font-size: 20px;
+            font-weight: normal;
+            color: var(--muted);
+        }
+
+        /* 大大的圓形打卡按鈕，手指好按 */
+        #checkin-btn {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: none;
+            background: var(--green);
+            color: white;
+            font-size: 26px;
+            font-weight: bold;
+            box-shadow: 0 8px 24px rgba(22, 163, 74, 0.35);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        #checkin-btn:active {
+            transform: scale(0.95); /* 按下去時縮小一點，有「按到了」的感覺 */
+        }
+
+        #checkin-btn:disabled {
+            background: var(--green-light);
+            color: var(--green);
+            box-shadow: none;
+            cursor: default;
+            transform: none;
+        }
+
+        #status {
+            margin: 0;
+            font-size: 18px;
+            color: var(--muted);
+        }
+
+        #status.done {
+            color: var(--green);
+            font-weight: bold;
+        }
+
+        /* 重設按鈕做得小小的，避免不小心按到 */
+        #reset-btn {
+            margin-top: 16px;
+            padding: 10px 16px;
+            border: none;
+            background: none;
+            color: var(--muted);
+            font-size: 14px;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
 
-    <h1>我的每日打卡</h1>
-    <button id="checkin-btn">今天打卡</button>
-    <p id="status">尚未打卡</p>
+    <main class="app">
+        <h1>我的每日打卡</h1>
+        <p id="today"></p>
+
+        <div class="card">
+            <p class="streak-label">🔥 連續打卡</p>
+            <p class="streak-number"><span id="streak">0</span> <small>天</small></p>
+        </div>
+
+        <button id="checkin-btn">今天打卡</button>
+        <p id="status">今天尚未打卡</p>
+
+        <button id="reset-btn">重設紀錄</button>
+    </main>
 
 <script>
     console.log("JS 開始執行了 !");
     const button = document.getElementById("checkin-btn");
+    const resetButton = document.getElementById("reset-btn");
     const statusText = document.getElementById("status");
+    const streakText = document.getElementById("streak");
+    const todayText = document.getElementById("today");
 
-    // 第 3 階段：頁面一載入，先去 localStorage 看有沒有打卡紀錄
-    const saved = localStorage.getItem("checkedIn");
-    console.log("讀到的資料：", saved);
+    // 把日期轉成 "2026-11-08" 這種文字，方便存起來和比較
+    function toDateKey(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0"); // 月份從 0 開始，所以要 +1
+        const day = String(date.getDate()).padStart(2, "0");
+        return year + "-" + month + "-" + day;
+    }
 
-    if (saved === "yes") {
-        statusText.textContent = "已打卡";
+    // 從 localStorage 讀出「打過卡的日期清單」，沒有的話就給空陣列
+    function loadCheckins() {
+        const saved = localStorage.getItem("checkins");
+        if (saved === null) {
+            return [];
+        }
+        return JSON.parse(saved); // 文字 → 陣列
+    }
+
+    // 把日期清單存回 localStorage（陣列 → 文字）
+    function saveCheckins(list) {
+        localStorage.setItem("checkins", JSON.stringify(list));
+    }
+
+    // 第 4 階段：計算連續打卡天數
+    function countStreak(list) {
+        const day = new Date();
+
+        // 今天還沒打卡的話，從昨天開始往回算（今天還有機會打，連續紀錄不算斷）
+        if (!list.includes(toDateKey(day))) {
+            day.setDate(day.getDate() - 1);
+        }
+
+        let count = 0;
+        // 一天一天往回看，只要那天有打卡就 +1，遇到沒打卡的那天就停
+        while (list.includes(toDateKey(day))) {
+            count = count + 1;
+            day.setDate(day.getDate() - 1);
+        }
+        return count;
+    }
+
+    // 依照目前的資料，更新整個畫面
+    function render() {
+        const list = loadCheckins();
+        const today = toDateKey(new Date());
+
+        // 顯示今天日期，例如「11月8日 星期日」
+        todayText.textContent = new Date().toLocaleDateString("zh-TW", {
+            month: "long",
+            day: "numeric",
+            weekday: "long"
+        });
+
+        if (list.includes(today)) {
+            const time = localStorage.getItem("lastCheckinTime");
+            statusText.textContent = "今天已打卡 ✅（" + time + "）";
+            statusText.className = "done";
+            button.textContent = "已完成 ✓";
+            button.disabled = true; // 今天打過了，按鈕變淡色
+        } else {
+            statusText.textContent = "今天尚未打卡";
+            statusText.className = "";
+            button.textContent = "今天打卡";
+            button.disabled = false;
+        }
+
+        streakText.textContent = countStreak(list);
     }
 
     button.addEventListener("click", function() {
-        statusText.textContent = "已打卡";
-        // 第 3 階段：把打卡結果存起來，重新整理後還會在
-        localStorage.setItem("checkedIn", "yes");
-        console.log("打卡成功 !");
+        const list = loadCheckins();
+        const today = toDateKey(new Date());
+
+        if (!list.includes(today)) {
+            list.push(today);
+            saveCheckins(list);
+            localStorage.setItem("lastCheckinTime", new Date().toLocaleTimeString());
+            console.log("打卡成功 !", list);
+        }
+        render();
+    });
+
+    resetButton.addEventListener("click", function() {
+        if (confirm("確定要清除所有打卡紀錄嗎？")) {
+            localStorage.removeItem("checkins");
+            localStorage.removeItem("lastCheckinTime");
+            render();
+        }
+    });
+
+    // 舊版（第 3 階段）存的是 "checkedIn" = "yes"，已經用不到了，順手清掉
+    localStorage.removeItem("checkedIn");
+
+    // 頁面一載入就先畫一次
+    render();
+
+    // 手機上 App 常常一直開著不關，切回來時重新畫一次，跨過半夜就會自動變成新的一天
+    document.addEventListener("visibilitychange", function() {
+        if (document.visibilityState === "visible") {
+            render();
+        }
     });
 
 </script>
