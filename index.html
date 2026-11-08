@@ -1195,7 +1195,7 @@
         document.getElementById("submit-btn").textContent = isEdit ? "儲存" : "新增";
         document.getElementById("date-fields").hidden = (type !== "goal");
         document.getElementById("input-name").placeholder =
-            type === "goal" ? "例如：21 天早起挑戰" : "例如：冥想 10 分鐘";
+            type === "goal" ? "請輸入名稱" : "請輸入名稱";
 
         if (isEdit) {
             // 編輯：把原本的內容填進去
@@ -1245,7 +1245,7 @@
                 return;
             }
             if (end < start) {
-                alert("結束日期不能比開始日期早喔");
+                alert("結束日期不能比開始日期早");
                 return;
             }
             newItem.type = "goal";
