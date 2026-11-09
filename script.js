@@ -962,6 +962,81 @@ document.getElementById("reset-btn").addEventListener("click", function() {
     }
 });
 
+// ===== 備份資料：匯出 =====
+document.getElementById("export-btn").addEventListener("click", function() {
+    // ① 把習慣和打卡紀錄打包成一個物件，再轉成文字（縮排 2 格比較好讀）
+    const data = {
+        habits: loadHabits(),
+        records: loadRecords()
+    };
+    const text = JSON.stringify(data, null, 2);
+
+    // ② 把文字變成「記憶體裡的檔案」（Blob），並產生一個暫時網址指向它
+    const blob = new Blob([text], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    // ③ 做一個看不見的下載連結，假裝點它一下
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "打卡備份-" + toDateKey(new Date()) + ".json";
+    document.body.appendChild(a); // 有些手機瀏覽器要放進網頁裡才能點
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url); // 用完就釋放暫時網址
+});
+
+// ===== 備份資料：匯入 =====
+const importFile = document.getElementById("import-file");
+
+// 按「匯入資料」→ 幫忙點藏起來的選擇檔案元件
+document.getElementById("import-btn").addEventListener("click", function() {
+    importFile.click();
+});
+
+// 選好檔案之後
+importFile.addEventListener("change", function() {
+    const file = importFile.files[0];
+    if (!file) {
+        return; // 使用者按了取消
+    }
+
+    // FileReader：用來讀取使用者選的檔案內容
+    const reader = new FileReader();
+
+    // 讀完之後會執行這裡（讀檔需要時間，所以不是馬上就有結果）
+    reader.onload = function() {
+        let data;
+        try {
+            data = JSON.parse(reader.result);
+        } catch (error) {
+            alert("這個檔案不是正確的備份檔，無法匯入。");
+            return;
+        }
+
+        // 檢查內容是不是我們匯出的格式
+        const ok = data !== null
+            && Array.isArray(data.habits)
+            && typeof data.records === "object" && data.records !== null
+            && !Array.isArray(data.records);
+        if (!ok) {
+            alert("這個檔案不是打卡備份檔，無法匯入。");
+            return;
+        }
+
+        if (confirm("匯入會覆蓋目前所有的習慣和打卡紀錄，確定要匯入嗎？")) {
+            saveHabits(data.habits);
+            saveRecords(data.records);
+            render();
+            alert("匯入完成！");
+        }
+    };
+
+    reader.readAsText(file);
+
+    // 清空選擇，這樣下次選同一個檔案也會觸發 change
+    importFile.value = "";
+});
+
 // 手機上 App 常常一直開著不關，切回來時重新畫一次，跨過半夜就會自動變成新的一天
 document.addEventListener("visibilitychange", function() {
     if (document.visibilityState === "visible") {

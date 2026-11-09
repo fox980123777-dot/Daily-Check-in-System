@@ -468,6 +468,20 @@ svg {
     color: #dc2626;
 }
 
+/* ===== 備份資料 ===== */
+.backup-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.backup-btn {
+    flex: 1;            /* 兩顆按鈕平分寬度 */
+    padding: 14px;
+    border-radius: 14px;
+    background: var(--card);
+}
+
 .danger-btn {
     width: 100%;
     padding: 14px;

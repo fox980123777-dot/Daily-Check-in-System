@@ -21,7 +21,7 @@
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
     <!-- ?v=2 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案 -->
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -136,6 +136,17 @@
                 <h2>管理習慣與短期目標</h2>
             </div>
             <ul class="habit-list" id="manage-list"></ul>
+
+            <div class="section-head">
+                <h2>備份資料</h2>
+            </div>
+            <div class="backup-row">
+                <button class="backup-btn" id="export-btn">匯出資料</button>
+                <button class="backup-btn" id="import-btn">匯入資料</button>
+            </div>
+            <!-- 選擇檔案的元件，本身很醜所以藏起來，由「匯入資料」按鈕幫忙點它 -->
+            <input type="file" id="import-file" accept=".json,application/json" hidden>
+
             <button class="danger-btn" id="reset-btn">清除所有打卡紀錄</button>
         </section>
     </main>
@@ -182,6 +193,6 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=2"></script>
+<script src="script.js?v=3"></script>
 </body>
 </html>
