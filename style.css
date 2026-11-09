@@ -301,12 +301,6 @@ svg {
 .cal-day.done.today {
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text);
 }
-
-/* 淺灰色的日子就算是今天，也不要黑框 */
-.cal-day.partial.today {
-    box-shadow: none;
-}
-
 /* 未來的日子：淡一點 */
 .cal-day.future {
     color: var(--muted);
