@@ -20,9 +20,9 @@
     <!-- 所有圖示名稱可以到 https://lucide.dev/icons 查 -->
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
-    <!-- ?v=12 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
+    <!-- ?v=13 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
          記得 script.js 最上面的 APP_VERSION 也要改成一樣的數字（設定頁最下面會顯示） -->
-    <link rel="stylesheet" href="style.css?v=12">
+    <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 
@@ -208,6 +208,21 @@
                     <input type="date" id="input-end">
                 </label>
             </div>
+            <!-- 只有短期目標才會顯示：每週哪幾天要做（預設全部勾選 = 每天） -->
+            <div class="field" id="weekday-field">
+                <div class="field-head">每週幾（可以選好幾天）
+                    <button type="button" class="select-all-btn" id="select-all-days">全選</button>
+                </div>
+                <div class="day-picks" id="day-picks">
+                    <label class="day-pick"><input type="checkbox" value="0" checked><span>日</span></label>
+                    <label class="day-pick"><input type="checkbox" value="1" checked><span>一</span></label>
+                    <label class="day-pick"><input type="checkbox" value="2" checked><span>二</span></label>
+                    <label class="day-pick"><input type="checkbox" value="3" checked><span>三</span></label>
+                    <label class="day-pick"><input type="checkbox" value="4" checked><span>四</span></label>
+                    <label class="day-pick"><input type="checkbox" value="5" checked><span>五</span></label>
+                    <label class="day-pick"><input type="checkbox" value="6" checked><span>六</span></label>
+                </div>
+            </div>
             <div class="dialog-buttons">
                 <button type="button" id="cancel-btn">取消</button>
                 <button type="submit" class="primary" id="submit-btn">新增</button>
@@ -252,8 +267,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=12"></script>
+<script src="script.js?v=13"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=12"></script>
+<script type="module" src="firebase.js?v=13"></script>
 </body>
 </html>

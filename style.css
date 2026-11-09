@@ -561,6 +561,68 @@ dialog h3 {
     min-width: 0;
 }
 
+/* ===== 每週幾：7 個可以按的小圓鈕 ===== */
+/* 標題和右邊的「全選」按鈕放同一行 */
+.field-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.select-all-btn {
+    padding: 2px 4px;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.day-picks {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.day-pick {
+    flex: 1;
+    min-width: 0;
+}
+
+/* 把真正的勾選框藏起來（還是可以按），只顯示下面的 span */
+.day-pick input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.day-pick span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--muted);
+    font-size: 15px;
+    cursor: pointer;
+}
+
+/* 勾選了：反過來的顏色 */
+.day-pick input:checked + span {
+    background: var(--text);
+    border-color: var(--text);
+    color: var(--bg);
+}
+
+.day-pick input:focus-visible + span {
+    outline: 2px solid var(--accent);
+}
+
 /* ===== 圖示下拉選單 ===== */
 /* 按鈕：顯示目前選的圖示 + 名字 + 向下箭頭 */
 .icon-select {

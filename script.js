@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 12;
+const APP_VERSION = 13;
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -122,6 +122,20 @@ function isGoal(item) {
     return item.type === "goal";
 }
 
+// 短期目標可以只在每週某幾天做：days 是星期的數字（0 = 日、1 = 一 … 6 = 六）
+// 舊資料沒有 days，就當作每天都要做
+function isGoalDay(goal, key) {
+    return !goal.days || goal.days.includes(fromDateKey(key).getDay());
+}
+
+// 「每週一、三、五」；每天都要做的話回傳空字串（不用特別顯示）
+function goalDaysText(goal) {
+    if (!goal.days || goal.days.length === 7) {
+        return "";
+    }
+    return "每週" + goal.days.map(function(d) { return WEEKDAYS[d]; }).join("、");
+}
+
 // ===== 待辦事項 =====
 // 跟短期目標一樣有開始日期、期限（start、end）和進度條
 // 不一樣的地方：打勾後記在 item.done（那天的日期），到了隔天就從今日頁消失
@@ -191,6 +205,15 @@ function goalInfo(goal) {
     const left = total - dayNumber;
     let text = "第 " + dayNumber + " / " + total + " 天 · ";
     text = text + (left === 0 ? "今天是最後一天！" : "剩 " + left + " 天");
+
+    // 有選每週幾的話，前面加上「每週一、三」；今天不是要做的日子 → 休息，不能打卡
+    const daysText = goalDaysText(goal);
+    if (daysText !== "") {
+        text = daysText + " · " + text;
+    }
+    if (!isGoalDay(goal, toDateKey(new Date()))) {
+        return { active: false, percent: dayNumber / total * 100, text: "今天休息 · " + text };
+    }
     return { active: true, percent: dayNumber / total * 100, text: text };
 }
 
@@ -464,6 +487,9 @@ function renderSettings() {
         let note = item.note;
         if (isGoal(item)) {
             note = "短期目標 · " + item.start.slice(5).replace("-", "/") + " ~ " + item.end.slice(5).replace("-", "/");
+            if (goalDaysText(item) !== "") {
+                note = note + " · " + goalDaysText(item);
+            }
         }
         if (isTodo(item)) {
             note = item.done
@@ -504,7 +530,8 @@ function isActiveOn(item, key) {
         // 建立之前的日子不用做（沒有 created 的話就當作一直都有）
         return !item.created || key >= item.created;
     }
-    return key >= item.start && key <= item.end; // 日期文字可以直接比大小
+    // 日期文字可以直接比大小；還要是有選的星期幾
+    return key >= item.start && key <= item.end && isGoalDay(item, key);
 }
 
 // 「2026/11/2」
@@ -1149,6 +1176,29 @@ const dialog = document.getElementById("add-dialog");
 let addingType = "habit"; // 現在要新增的是 "habit"（習慣）、"goal"（短期目標）還是 "todo"（待辦事項）
 let editingId = null;     // 正在編輯哪一個項目的 id；null 代表是「新增」
 
+// 「每週幾」的 7 個勾選框（Array.from 把它變成陣列，才能用 filter、map）
+function dayChecks() {
+    return Array.from(document.querySelectorAll("#day-picks input"));
+}
+
+// 全部都勾了 → 按鈕顯示「全部取消」；還有沒勾的 → 顯示「全選」
+function updateSelectAllText() {
+    const allChecked = dayChecks().every(function(box) { return box.checked; });
+    document.getElementById("select-all-days").textContent = allChecked ? "全部取消" : "全選";
+}
+
+// 按「全選」：全部勾起來；已經全選了再按一次就全部取消
+document.getElementById("select-all-days").addEventListener("click", function() {
+    const allChecked = dayChecks().every(function(box) { return box.checked; });
+    dayChecks().forEach(function(box) {
+        box.checked = !allChecked;
+    });
+    updateSelectAllText();
+});
+
+// 自己一個一個按的時候，也要更新按鈕上的字
+document.getElementById("day-picks").addEventListener("change", updateSelectAllText);
+
 // type："habit" 或 "goal"
 // item：要編輯的項目；不給的話就是「新增」
 function openAddDialog(type, item) {
@@ -1164,6 +1214,7 @@ function openAddDialog(type, item) {
     document.getElementById("submit-btn").textContent = isEdit ? "儲存" : "新增";
     document.getElementById("date-fields").hidden = !hasDates;
     document.getElementById("end-label").textContent = (type === "todo") ? "期限" : "結束日期";
+    document.getElementById("weekday-field").hidden = (type !== "goal"); // 只有短期目標可以選每週幾
 
     if (isEdit) {
         // 編輯：把原本的內容填進去
@@ -1173,6 +1224,12 @@ function openAddDialog(type, item) {
         if (hasDates) {
             document.getElementById("input-start").value = item.start;
             document.getElementById("input-end").value = item.end;
+        }
+        if (type === "goal") {
+            // 把原本選的星期幾勾回去（沒有 days 的舊資料 = 全部勾選）
+            dayChecks().forEach(function(box) {
+                box.checked = !item.days || item.days.includes(Number(box.value));
+            });
         }
     } else {
         // 新增：用預設值
@@ -1186,6 +1243,7 @@ function openAddDialog(type, item) {
         document.getElementById("input-end").value = toDateKey(end);
     }
 
+    updateSelectAllText(); // 依照現在勾了幾天，顯示「全選」或「全部取消」
     dialog.showModal();
 }
 
@@ -1220,6 +1278,18 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         newItem.type = addingType;
         newItem.start = start;
         newItem.end = end;
+    }
+
+    if (addingType === "goal") {
+        // 收集有勾選的星期幾，例如 [1, 3, 5]
+        const days = dayChecks()
+            .filter(function(box) { return box.checked; })
+            .map(function(box) { return Number(box.value); });
+        if (days.length === 0) {
+            alert("每週至少要選一天");
+            return;
+        }
+        newItem.days = days;
     }
 
     const habits = loadHabits();

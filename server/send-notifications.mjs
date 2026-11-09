@@ -40,7 +40,11 @@ function isTodo(item) { return item.type === "todo"; }
 function isActiveOn(item, key) {
     if (isTodo(item)) return false;
     if (!isGoal(item)) return !item.created || key >= item.created;
-    return key >= item.start && key <= item.end;
+    if (key < item.start || key > item.end) return false;
+    // 短期目標只在有選的星期幾要做（沒有 days 的舊資料 = 每天）
+    const parts = key.split("-").map(Number);
+    const weekday = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])).getUTCDay();
+    return !item.days || item.days.includes(weekday);
 }
 
 // ===== 算出要推播的內容 =====
