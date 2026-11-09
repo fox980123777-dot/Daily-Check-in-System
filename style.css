@@ -1,0 +1,505 @@
+/* ===== 顏色：統一寫在這裡，想換顏色只要改這幾行 ===== */
+:root {
+    color-scheme: light dark; /* 讓日期選擇器等內建元件也跟著深淺色變化 */
+    --bg: #ffffff;        /* 整個畫面的底色 */
+    --card: #f3f3f3;      /* 灰色卡片 */
+    --text: #1a1a1a;      /* 主要文字 */
+    --muted: #8a8a8a;     /* 次要的灰色小字 */
+    --line: #dddddd;      /* 進度條底色 */
+    --undone: #c8c8c8;    /* 還沒完成的灰色圓點 */
+    --accent: #f59e0b;    /* 火焰的橘色 */
+}
+
+/* 手機設定成深色模式時，自動換成深色 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #121212;
+        --card: #222222;
+        --text: #f2f2f2;
+        --muted: #9a9a9a;
+        --line: #3a3a3a;
+        --undone: #4a4a4a;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+/* 有 hidden 的元素一定要藏起來（不然會被下面的 display: flex 蓋掉） */
+[hidden] {
+    display: none !important;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    -webkit-tap-highlight-color: transparent; /* 點按鈕時不要出現灰色方框 */
+}
+
+button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4; /* 圖示線條粗細：數字越大越粗（Lucide 預設是 2） */
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+.app {
+    max-width: 420px; /* 電腦上看也不會拉得太寬 */
+    margin: 0 auto;
+    /* 上面避開瀏海；下面留空間給底部選單 */
+    padding: calc(12px + env(safe-area-inset-top)) 16px calc(110px + env(safe-area-inset-bottom));
+}
+
+/* ===== 最上面：選單、標題、鈴鐺 ===== */
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 44px;
+}
+
+.topbar h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.icon-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ===== 日期和加油的話 ===== */
+.date {
+    margin: 16px 0 6px;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.greeting {
+    margin: 0 0 20px;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+/* ===== 灰色大卡片（進度卡片、日曆都用這個） ===== */
+.card {
+    background: var(--card);
+    border-radius: 18px;
+    padding: 18px 20px;
+    margin-bottom: 28px;
+}
+
+.progress-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.progress-label {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.progress-count {
+    margin: 6px 0 0;
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.flame {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bar {
+    height: 10px;
+    border-radius: 5px;
+    background: var(--line);
+    margin: 14px 0 12px;
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 5px;
+    background: var(--text);
+    transition: width 0.3s; /* 進度條長度改變時有動畫 */
+}
+
+.streak {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+/* ===== 我的習慣、短期進度 ===== */
+.section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.section-head h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.habit-list {
+    list-style: none;
+    margin: 0 0 28px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.habit {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    background: var(--card);
+    border-radius: 14px;
+    text-align: left;
+    transition: transform 0.1s;
+}
+
+.habit:active {
+    transform: scale(0.98); /* 按下去時縮小一點，有「按到了」的感覺 */
+}
+
+/* 短期目標還沒開始或已經結束：變淡、不能按 */
+.habit:disabled {
+    opacity: 0.5;
+    cursor: default;
+    transform: none;
+}
+
+.habit-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.habit-name {
+    display: block;
+    font-size: 15px;
+}
+
+.habit-note {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+/* 短期進度的時間進度條（比上面的細一點） */
+.goal-bar {
+    height: 6px;
+    margin: 8px 0 0;
+}
+
+/* 還沒完成：灰色實心圓點 */
+.dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--undone);
+    flex-shrink: 0;
+}
+
+.empty {
+    color: var(--muted);
+    text-align: center;
+    padding: 20px 0;
+    font-size: 14px;
+}
+
+/* ===== 日曆頁 ===== */
+.cal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.cal-head h2 {
+    margin: 0;
+    font-size: 17px;
+}
+
+/* 一週 7 天，所以排成 7 欄 */
+.cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    text-align: center;
+}
+
+.cal-weekday {
+    font-size: 12px;
+    color: var(--muted);
+    padding-bottom: 4px;
+}
+
+.cal-day {
+    aspect-ratio: 1; /* 寬高一樣，變成正方形 → 再加上圓角就是圓形 */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+/* 有打卡的日子：黑底白字 */
+.cal-day.done {
+    background: var(--text);
+    color: var(--bg);
+    font-weight: 600;
+}
+
+/* 今天：外面一圈框 */
+.cal-day.today {
+    box-shadow: inset 0 0 0 2px var(--text);
+}
+
+.cal-day.done.today {
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text);
+}
+
+/* 未來的日子：淡一點 */
+.cal-day.future {
+    color: var(--muted);
+}
+
+/* 目前點選的日子：橘色外框 */
+.cal-day.selected {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.cal-summary {
+    margin: 14px 0 0;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+/* ===== 設定頁 ===== */
+.setting-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--card);
+    border-radius: 14px;
+}
+
+.edit-btn,
+.delete-btn {
+    font-size: 14px;
+    padding: 6px 4px;
+    flex-shrink: 0;
+}
+
+.delete-btn {
+    color: #dc2626;
+}
+
+.danger-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 14px;
+    background: var(--card);
+    color: #dc2626;
+}
+
+/* ===== 新增視窗 ===== */
+dialog {
+    width: min(92vw, 380px);
+    border: none;
+    border-radius: 20px;
+    padding: 22px 20px;
+    background: var(--bg);
+    color: var(--text);
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.4); /* 視窗後面變暗 */
+}
+
+dialog h3 {
+    margin: 0 0 16px;
+    font-size: 18px;
+}
+
+.field {
+    display: block;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.field input {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+    font: inherit;
+    font-size: 16px; /* 16px 以上，iPhone 點輸入框時才不會自動放大畫面 */
+}
+
+.date-fields {
+    display: flex;
+    gap: 10px;
+}
+
+.date-fields .field {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ===== 圖示下拉選單 ===== */
+/* 按鈕：顯示目前選的圖示 + 名字 + 向下箭頭 */
+.icon-select {
+    width: 100%;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 16px;
+    text-align: left;
+}
+
+.icon-select .icon-select-name {
+    flex: 1;
+}
+
+.icon-select .chevron {
+    color: var(--muted);
+    transition: transform 0.2s;
+}
+
+/* 選單打開時，箭頭轉成朝上 */
+.icon-select[aria-expanded="true"] .chevron {
+    transform: rotate(180deg);
+}
+
+/* 打開後出現的圖示格子：一排 5 個 */
+.icon-menu {
+    margin-top: 6px;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    max-height: 220px;
+    overflow-y: auto; /* 太多的話可以往下滑 */
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+}
+
+.icon-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 2px;
+    border-radius: 8px;
+    font-size: 11px;
+    color: var(--text);
+}
+
+/* 目前選中的那個：黑底白字 */
+.icon-option.selected {
+    background: var(--text);
+    color: var(--bg);
+}
+
+.dialog-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.dialog-buttons button {
+    flex: 1;
+    padding: 13px;
+    border-radius: 12px;
+    background: var(--card);
+}
+
+.dialog-buttons .primary {
+    background: var(--text);
+    color: var(--bg);
+    font-weight: 600;
+}
+
+/* ===== 最下面的選單 ===== */
+.tabbar {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    width: calc(100% - 32px);
+    max-width: 388px;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px;
+    background: var(--card);
+    border-radius: 28px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 0;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.tab.active {
+    color: var(--text);
+}
