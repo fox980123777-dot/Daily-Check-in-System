@@ -1,0 +1,9 @@
+{
+  "name": "daily-checkin-notify",
+  "private": true,
+  "type": "module",
+  "description": "每天定時發推播提醒（由 GitHub Actions 執行）",
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

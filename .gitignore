@@ -1,0 +1,7 @@
+# 後端安裝的套件（很大，不用上傳）
+node_modules/
+
+# ⚠️ Firebase 服務帳戶金鑰：絕對不能上傳到 GitHub！
+# 萬一不小心放進專案資料夾，這幾行會讓 git 自動忽略它
+*firebase-adminsdk*.json
+*service-account*.json

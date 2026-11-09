@@ -1,0 +1,44 @@
+# ===== GitHub Actions：每天定時執行 server/send-notifications.mjs =====
+# 時間用的是世界標準時間（UTC），台灣要 +8 小時
+# GitHub 很忙的時候可能會晚 10～30 分鐘才執行
+
+name: 推播提醒
+
+on:
+  schedule:
+    - cron: "0 0 * * *"    # UTC 00:00 = 台灣早上 8:00
+    - cron: "0 12 * * *"   # UTC 12:00 = 台灣晚上 8:00
+  workflow_dispatch:        # 可以在 GitHub 的 Actions 頁面手動按「Run workflow」
+    inputs:
+      mode:
+        description: "要發哪一種推播"
+        required: true
+        default: test
+        type: choice
+        options:
+          - test
+          - morning
+          - evening
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 安裝套件
+        working-directory: server
+        run: npm install
+
+      - name: 發推播
+        working-directory: server
+        run: node send-notifications.mjs
+        env:
+          # 金鑰從 GitHub Secrets 拿，不會出現在程式碼裡
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # 手動執行：用選的模式；定時執行：早上的排程是 morning，晚上的是 evening
+          MODE: ${{ github.event.inputs.mode || (github.event.schedule == '0 0 * * *' && 'morning' || 'evening') }}
