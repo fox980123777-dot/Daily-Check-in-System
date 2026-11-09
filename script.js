@@ -27,6 +27,7 @@ function loadHabits() {
 
 function saveHabits(habits) {
     localStorage.setItem("habits", JSON.stringify(habits));
+    uploadToCloud();
 }
 
 function loadRecords() {
@@ -39,6 +40,14 @@ function loadRecords() {
 
 function saveRecords(records) {
     localStorage.setItem("records", JSON.stringify(records));
+    uploadToCloud();
+}
+
+// 有登入的話，順便把資料傳到雲端（cloudSave 是 firebase.js 提供的，沒登入時不存在）
+function uploadToCloud() {
+    if (window.cloudSave) {
+        window.cloudSave();
+    }
 }
 
 // ===== 日期小工具 =====
@@ -957,7 +966,7 @@ document.querySelectorAll(".seg-btn").forEach(function(btn) {
 
 document.getElementById("reset-btn").addEventListener("click", function() {
     if (confirm("確定要清除所有打卡紀錄嗎？（習慣清單會保留）")) {
-        localStorage.removeItem("records");
+        saveRecords({}); // 用 saveRecords 清空，雲端才會一起清掉
         render();
     }
 });
