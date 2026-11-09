@@ -314,6 +314,116 @@ svg {
     color: var(--muted);
 }
 
+/* ===== 統計頁 ===== */
+
+/* 本週 / 本月 切換按鈕 */
+.seg {
+    display: flex;
+    margin: 16px 0;
+    padding: 4px;
+    background: var(--card);
+    border-radius: 12px;
+}
+
+.seg-btn {
+    flex: 1;
+    padding: 8px 0;
+    border-radius: 9px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.seg-btn.active {
+    background: var(--bg);
+    color: var(--text);
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* 卡片下面的三個小數字 */
+.stats-numbers {
+    display: flex;
+    text-align: center;
+}
+
+.stats-numbers div {
+    flex: 1;
+}
+
+.stats-num {
+    display: block;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.stats-name {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+/* 長條圖：每一天是一欄，欄裡的黑色高度 = 當天完成的比例 */
+.chart {
+    display: flex;
+    gap: 6px;
+    height: 150px;
+}
+
+.chart.month {
+    gap: 2px; /* 本月有 30 天左右，欄位之間要靠近一點 */
+}
+
+.chart-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.chart-track {
+    flex: 1;
+    width: 100%;
+    max-width: 28px;
+    display: flex;
+    align-items: flex-end; /* 黑色從下面長上來 */
+    background: var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.chart-fill {
+    width: 100%;
+    background: var(--text);
+    border-radius: 6px;
+    transition: height 0.3s;
+}
+
+.chart-label {
+    height: 12px;
+    font-size: 10px;
+    line-height: 12px;
+    color: var(--muted);
+}
+
+.chart-col.today .chart-label {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.chart-col.future .chart-track {
+    opacity: 0.4; /* 還沒到的日子變淡 */
+}
+
+/* 各項目完成率：右邊的百分比 */
+.stats-percent {
+    font-size: 15px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
 /* ===== 設定頁 ===== */
 .setting-row {
     display: flex;

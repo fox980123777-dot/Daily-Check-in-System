@@ -394,9 +394,177 @@ function renderSettings() {
     });
 }
 
+// ===== 統計頁 =====
+let statsRange = "week"; // "week" = 本週、"month" = 本月
+
+// 某個項目在那一天要不要做？習慣每天都要；短期目標只有在期間內才要
+function isActiveOn(item, key) {
+    if (!isGoal(item)) {
+        return true;
+    }
+    return key >= item.start && key <= item.end; // 日期文字可以直接比大小
+}
+
+// 本週（星期一 ~ 星期日）或本月（1 號 ~ 月底）的每一天
+function getStatsDays(range) {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const days = [];
+
+    if (range === "week") {
+        // getDay()：星期日 = 0、星期一 = 1 …，算出今天離星期一幾天
+        const fromMonday = (today.getDay() + 6) % 7;
+        for (let i = 0; i < 7; i++) {
+            // new Date 的日期超過月底或小於 1，會自動換到隔壁的月份
+            days.push(new Date(year, month, today.getDate() - fromMonday + i));
+        }
+    } else {
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+            days.push(new Date(year, month, d));
+        }
+    }
+    return days;
+}
+
+// 「11/9（一）」
+function shortDate(date) {
+    return (date.getMonth() + 1) + "/" + date.getDate() + "（" + WEEKDAYS[date.getDay()] + "）";
+}
+
+// 長條圖的一欄
+function makeChartColumn(label, percent, isToday, isFuture) {
+    const col = document.createElement("div");
+    col.className = "chart-col";
+    if (isToday) {
+        col.classList.add("today");
+    }
+    if (isFuture) {
+        col.classList.add("future");
+    }
+
+    const track = document.createElement("div");
+    track.className = "chart-track";
+    const fill = document.createElement("div");
+    fill.className = "chart-fill";
+    fill.style.height = percent + "%";
+    track.appendChild(fill);
+    col.appendChild(track);
+
+    const text = document.createElement("span");
+    text.className = "chart-label";
+    text.textContent = label;
+    col.appendChild(text);
+    return col;
+}
+
+function renderStats() {
+    const habits = loadHabits();
+    const records = loadRecords();
+    const todayKey = toDateKey(new Date());
+    const days = getStatsDays(statsRange);
+
+    // 上方的日期範圍
+    const first = days[0];
+    const last = days[days.length - 1];
+    let rangeText;
+    if (statsRange === "week") {
+        rangeText = shortDate(first) + " ~ " + shortDate(last);
+    } else {
+        rangeText = first.getFullYear() + " 年 " + (first.getMonth() + 1) + " 月";
+    }
+    document.getElementById("stats-range").textContent = rangeText + " · 統計到今天";
+
+    // 一天一天看：那天要做幾項、做到幾項
+    const chart = document.getElementById("stats-chart");
+    chart.innerHTML = "";
+    chart.classList.toggle("month", statsRange === "month");
+
+    let doneTotal = 0;     // 總共完成幾次
+    let needTotal = 0;     // 總共應該做幾次
+    let checkinDays = 0;   // 有打卡的天數
+    let perfectDays = 0;   // 全部完成的天數
+
+    days.forEach(function(date) {
+        const key = toDateKey(date);
+        const isFuture = key > todayKey;
+        const items = habits.filter(function(h) { return isActiveOn(h, key); });
+        const doneIds = records[key] || [];
+        const done = items.filter(function(h) { return doneIds.includes(h.id); }).length;
+
+        if (!isFuture) {
+            doneTotal = doneTotal + done;
+            needTotal = needTotal + items.length;
+            if (doneIds.length > 0) {
+                checkinDays = checkinDays + 1;
+            }
+            if (items.length > 0 && done === items.length) {
+                perfectDays = perfectDays + 1;
+            }
+        }
+
+        // 本週顯示星期幾；本月只標 1、5、10、15… 號，不然字會擠在一起
+        let label = "";
+        if (statsRange === "week") {
+            label = WEEKDAYS[date.getDay()];
+        } else if (date.getDate() === 1 || date.getDate() % 5 === 0) {
+            label = date.getDate();
+        }
+
+        const percent = (isFuture || items.length === 0) ? 0 : done / items.length * 100;
+        chart.appendChild(makeChartColumn(label, percent, key === todayKey, isFuture));
+    });
+
+    const rate = needTotal === 0 ? 0 : Math.round(doneTotal / needTotal * 100);
+    const pastDays = days.filter(function(d) { return toDateKey(d) <= todayKey; }).length;
+
+    document.getElementById("stats-rate").textContent = rate + "%";
+    document.getElementById("stats-bar").style.width = rate + "%";
+    document.getElementById("stats-done").textContent = doneTotal;
+    document.getElementById("stats-days").textContent = checkinDays + " / " + pastDays;
+    document.getElementById("stats-perfect").textContent = perfectDays + " 天";
+
+    // 各項目完成率：只算到今天為止、而且那天需要做的日子
+    const pastKeys = days.map(toDateKey).filter(function(k) { return k <= todayKey; });
+    const list = document.getElementById("stats-list");
+    list.innerHTML = "";
+
+    habits.forEach(function(item) {
+        const needKeys = pastKeys.filter(function(k) { return isActiveOn(item, k); });
+        if (needKeys.length === 0) {
+            return; // 短期目標在這段時間還沒開始，就不列出來
+        }
+        const doneDays = needKeys.filter(function(k) {
+            return (records[k] || []).includes(item.id);
+        }).length;
+        const percent = Math.round(doneDays / needKeys.length * 100);
+
+        const row = document.createElement("li");
+        row.className = "setting-row";
+        row.appendChild(makeIcon(item.icon));
+
+        const text = makeHabitText(item.name, "完成 " + doneDays + " / " + needKeys.length + " 天");
+        text.appendChild(makeBar(percent, "goal-bar"));
+        row.appendChild(text);
+
+        const percentEl = document.createElement("span");
+        percentEl.className = "stats-percent";
+        percentEl.textContent = percent + "%";
+        row.appendChild(percentEl);
+
+        list.appendChild(row);
+    });
+
+    if (list.children.length === 0) {
+        list.appendChild(makeEmpty("還沒有習慣，先到今日頁新增一個吧"));
+    }
+}
+
 function render() {
     renderToday();
     renderCalendar();
+    renderStats();
     renderSettings();
     drawIcons();
 }
@@ -651,6 +819,17 @@ document.querySelectorAll(".tab").forEach(function(tab) {
         });
         document.getElementById("page-title").textContent = PAGE_TITLES[page];
         window.scrollTo(0, 0);
+    });
+});
+
+// ===== 統計頁：本週 / 本月 切換 =====
+document.querySelectorAll(".seg-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+        statsRange = btn.dataset.range;
+        document.querySelectorAll(".seg-btn").forEach(function(b) {
+            b.classList.toggle("active", b === btn);
+        });
+        render();
     });
 });
 

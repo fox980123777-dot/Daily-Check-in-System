@@ -88,9 +88,39 @@
             <ul class="habit-list" id="day-list"></ul>
         </section>
 
-        <!-- ===== 統計頁（之後的階段再做） ===== -->
+        <!-- ===== 統計頁 ===== -->
         <section id="page-stats" hidden>
-            <p class="empty">📊 統計功能即將推出</p>
+            <!-- 本週 / 本月 切換 -->
+            <div class="seg">
+                <button class="seg-btn active" data-range="week">本週</button>
+                <button class="seg-btn" data-range="month">本月</button>
+            </div>
+
+            <!-- 總完成率 -->
+            <div class="card">
+                <p class="progress-label" id="stats-range"></p>
+                <p class="progress-count" id="stats-rate">0%</p>
+                <div class="bar"><div class="bar-fill" id="stats-bar"></div></div>
+                <div class="stats-numbers">
+                    <div><span class="stats-num" id="stats-done">0</span><span class="stats-name">完成次數</span></div>
+                    <div><span class="stats-num" id="stats-days">0</span><span class="stats-name">打卡天數</span></div>
+                    <div><span class="stats-num" id="stats-perfect">0</span><span class="stats-name">全部完成</span></div>
+                </div>
+            </div>
+
+            <!-- 每天完成多少的長條圖 -->
+            <div class="section-head">
+                <h2>每日完成</h2>
+            </div>
+            <div class="card">
+                <div class="chart" id="stats-chart"></div>
+            </div>
+
+            <!-- 每個項目各自的完成率 -->
+            <div class="section-head">
+                <h2>各項目完成率</h2>
+            </div>
+            <ul class="habit-list" id="stats-list"></ul>
         </section>
 
         <!-- ===== 設定頁 ===== -->
