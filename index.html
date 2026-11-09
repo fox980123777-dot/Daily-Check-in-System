@@ -20,9 +20,9 @@
     <!-- 所有圖示名稱可以到 https://lucide.dev/icons 查 -->
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
-    <!-- ?v=8 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
+    <!-- ?v=9 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
          記得 script.js 最上面的 APP_VERSION 也要改成一樣的數字（設定頁最下面會顯示） -->
-    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -61,6 +61,13 @@
                 <button class="icon-btn" id="add-goal-btn" aria-label="新增短期目標"><i data-lucide="circle-plus"></i></button>
             </div>
             <ul class="habit-list" id="goal-list"></ul>
+
+            <!-- 待辦事項：打勾之後，隔天就會消失 -->
+            <div class="section-head">
+                <h2>待辦事項</h2>
+                <button class="icon-btn" id="add-todo-btn" aria-label="新增待辦事項"><i data-lucide="circle-plus"></i></button>
+            </div>
+            <ul class="habit-list" id="todo-list"></ul>
         </section>
 
         <!-- ===== 日曆頁 ===== -->
@@ -181,12 +188,12 @@
                 </button>
                 <div class="icon-menu" id="icon-menu" hidden></div>
             </div>
-            <!-- 只有短期目標才會顯示日期 -->
+            <!-- 只有短期目標、待辦事項才會顯示日期 -->
             <div class="date-fields" id="date-fields">
                 <label class="field">開始日期
                     <input type="date" id="input-start">
                 </label>
-                <label class="field">結束日期
+                <label class="field"><span id="end-label">結束日期</span>
                     <input type="date" id="input-end">
                 </label>
             </div>
@@ -225,8 +232,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=8"></script>
+<script src="script.js?v=9"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=8"></script>
+<script type="module" src="firebase.js?v=9"></script>
 </body>
 </html>

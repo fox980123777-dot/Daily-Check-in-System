@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 8;
+const APP_VERSION = 9;
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -122,6 +122,56 @@ function isGoal(item) {
     return item.type === "goal";
 }
 
+// ===== 待辦事項 =====
+// 跟短期目標一樣有開始日期、期限（start、end）和進度條
+// 不一樣的地方：打勾後記在 item.done（那天的日期），到了隔天就從今日頁消失
+// 待辦事項不算進「今日完成進度」、打卡成功和統計
+function isTodo(item) {
+    return item.type === "todo";
+}
+
+// 每天都要做的長期習慣（不是短期目標、也不是待辦事項）
+function isDailyHabit(item) {
+    return !isGoal(item) && !isTodo(item);
+}
+
+// 今日頁要不要顯示：還沒完成，或是今天才完成的（今天還可以取消打勾）
+function isTodoVisible(todo) {
+    return !todo.done || todo.done === toDateKey(new Date());
+}
+
+// 算出待辦事項的時間進度，格式跟 goalInfo 一樣
+function todoInfo(todo) {
+    const info = goalInfo(todo);
+    const today = fromDateKey(toDateKey(new Date()));
+    const late = daysBetween(fromDateKey(todo.end), today); // 超過期限幾天
+
+    if (late > 0) {
+        // 過了期限還是可以打勾，只是提醒已經超過
+        return { active: true, percent: 100, text: "已超過期限 " + late + " 天" };
+    }
+    if (info.active) {
+        info.text = info.text.replace("今天是最後一天！", "今天是期限！");
+    }
+    return info;
+}
+
+// 待辦事項打勾 / 取消
+function toggleTodo(id) {
+    const habits = loadHabits();
+    const todo = habits.find(function(h) { return h.id === id; });
+    const today = toDateKey(new Date());
+
+    if (todo.done === today) {
+        delete todo.done; // 今天按錯了，可以反悔
+    } else {
+        todo.done = today;
+    }
+
+    saveHabits(habits);
+    render();
+}
+
 // 算出短期目標的時間進度
 // 回傳：active（今天在期間內嗎）、percent（進度條要多長）、text（顯示的文字）
 function goalInfo(goal) {
@@ -210,8 +260,8 @@ function makeRow(item, isDone) {
     button.className = "habit";
     button.appendChild(makeIcon(item.icon));
 
-    if (isGoal(item)) {
-        const info = goalInfo(item);
+    if (isGoal(item) || isTodo(item)) {
+        const info = isTodo(item) ? todoInfo(item) : goalInfo(item);
         // 有寫說明的話：「說明 · 第 7 / 21 天 · 剩 14 天」
         const text = makeHabitText(item.name, item.note ? item.note + " · " + info.text : info.text);
         text.appendChild(makeBar(info.percent, "goal-bar"));
@@ -231,7 +281,11 @@ function makeRow(item, isDone) {
     }
 
     button.addEventListener("click", function() {
-        toggleHabit(item.id);
+        if (isTodo(item)) {
+            toggleTodo(item.id);
+        } else {
+            toggleHabit(item.id);
+        }
     });
 
     const li = document.createElement("li");
@@ -254,8 +308,9 @@ function renderToday() {
     const records = loadRecords();
     const doneToday = records[toDateKey(now)] || [];
 
-    const dailyHabits = habits.filter(function(h) { return !isGoal(h); });
+    const dailyHabits = habits.filter(isDailyHabit);
     const goals = habits.filter(isGoal);
+    const todos = habits.filter(function(h) { return isTodo(h) && isTodoVisible(h); });
 
     document.getElementById("date").textContent = formatDate(now);
 
@@ -294,6 +349,16 @@ function renderToday() {
     }
     goals.forEach(function(goal) {
         goalList.appendChild(makeRow(goal, doneToday.includes(goal.id)));
+    });
+
+    // 待辦事項
+    const todoList = document.getElementById("todo-list");
+    todoList.innerHTML = "";
+    if (todos.length === 0) {
+        todoList.appendChild(makeEmpty("沒有待辦事項，按右邊 ⊕ 新增一個吧"));
+    }
+    todos.forEach(function(todo) {
+        todoList.appendChild(makeRow(todo, todo.done !== undefined));
     });
 }
 
@@ -400,13 +465,18 @@ function renderSettings() {
         if (isGoal(item)) {
             note = "短期目標 · " + item.start.slice(5).replace("-", "/") + " ~ " + item.end.slice(5).replace("-", "/");
         }
+        if (isTodo(item)) {
+            note = item.done
+                ? "待辦事項 · " + item.done.slice(5).replace("-", "/") + " 已完成"
+                : "待辦事項 · 期限 " + item.end.slice(5).replace("-", "/");
+        }
         row.appendChild(makeHabitText(item.name, note));
 
         const edit = document.createElement("button");
         edit.className = "edit-btn";
         edit.textContent = "編輯";
         edit.addEventListener("click", function() {
-            openAddDialog(isGoal(item) ? "goal" : "habit", item);
+            openAddDialog(item.type || "habit", item);
         });
         row.appendChild(edit);
 
@@ -427,6 +497,9 @@ let statsRange = "week"; // "week" = 本週、"month" = 本月
 
 // 某個項目在那一天要不要做？習慣每天都要；短期目標只有在期間內才要
 function isActiveOn(item, key) {
+    if (isTodo(item)) {
+        return false; // 待辦事項不算進打卡和統計
+    }
     if (!isGoal(item)) {
         // 建立之前的日子不用做（沒有 created 的話就當作一直都有）
         return !item.created || key >= item.created;
@@ -505,7 +578,7 @@ function makeNumber(value, name, warn) {
 function renderHistory(habits, records) {
     const list = document.getElementById("history-list");
     list.innerHTML = "";
-    const dailyHabits = habits.filter(function(h) { return !isGoal(h); });
+    const dailyHabits = habits.filter(isDailyHabit);
 
     if (dailyHabits.length === 0) {
         list.appendChild(makeEmpty("還沒有長期習慣"));
@@ -868,6 +941,7 @@ function deleteHabit(item) {
 const ICON_OPTIONS = [
     { name: "star",           label: "星星" },
     { name: "target",         label: "目標" },
+    { name: "list-todo",      label: "待辦" },
     { name: "book-open",      label: "閱讀" },
     { name: "pencil",         label: "寫字" },
     { name: "graduation-cap", label: "學習" },
@@ -943,7 +1017,7 @@ iconSelect.addEventListener("click", function() {
 
 // ===== 新增 / 編輯視窗（共用同一個視窗） =====
 const dialog = document.getElementById("add-dialog");
-let addingType = "habit"; // 現在要新增的是 "habit"（習慣）還是 "goal"（短期目標）
+let addingType = "habit"; // 現在要新增的是 "habit"（習慣）、"goal"（短期目標）還是 "todo"（待辦事項）
 let editingId = null;     // 正在編輯哪一個項目的 id；null 代表是「新增」
 
 // type："habit" 或 "goal"
@@ -952,31 +1026,33 @@ function openAddDialog(type, item) {
     addingType = type;
     editingId = item ? item.id : null;
     const isEdit = (item !== undefined);
-    const typeName = type === "goal" ? "短期目標" : "習慣";
+    const typeName = { habit: "習慣", goal: "短期目標", todo: "待辦事項" }[type];
+    const hasDates = (type === "goal" || type === "todo");
 
     document.getElementById("add-form").reset(); // 清空上次打的字
     toggleIconMenu(false);
     document.getElementById("dialog-title").textContent = (isEdit ? "編輯" : "新增") + typeName;
     document.getElementById("submit-btn").textContent = isEdit ? "儲存" : "新增";
-    document.getElementById("date-fields").hidden = (type !== "goal");
+    document.getElementById("date-fields").hidden = !hasDates;
+    document.getElementById("end-label").textContent = (type === "todo") ? "期限" : "結束日期";
 
     if (isEdit) {
         // 編輯：把原本的內容填進去
         document.getElementById("input-name").value = item.name;
         document.getElementById("input-note").value = item.note || "";
         chooseIcon(OLD_ICON_NAMES[item.icon] || item.icon);
-        if (type === "goal") {
+        if (hasDates) {
             document.getElementById("input-start").value = item.start;
             document.getElementById("input-end").value = item.end;
         }
     } else {
         // 新增：用預設值
-        chooseIcon(type === "goal" ? "target" : "star");
+        chooseIcon({ habit: "star", goal: "target", todo: "list-todo" }[type]);
 
-        // 短期目標預設：今天開始，21 天
+        // 預設今天開始：短期目標 21 天、待辦事項 7 天
         const start = new Date();
         const end = new Date();
-        end.setDate(end.getDate() + 20);
+        end.setDate(end.getDate() + (type === "todo" ? 6 : 20));
         document.getElementById("input-start").value = toDateKey(start);
         document.getElementById("input-end").value = toDateKey(end);
     }
@@ -1001,7 +1077,7 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         created: toDateKey(new Date()) // 建立日期：今天
     };
 
-    if (addingType === "goal") {
+    if (addingType === "goal" || addingType === "todo") {
         const start = document.getElementById("input-start").value;
         const end = document.getElementById("input-end").value;
         if (start === "" || end === "") {
@@ -1012,7 +1088,7 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
             alert("結束日期不能比開始日期早");
             return;
         }
-        newItem.type = "goal";
+        newItem.type = addingType;
         newItem.start = start;
         newItem.end = end;
     }
@@ -1026,6 +1102,9 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         const index = habits.findIndex(function(h) { return h.id === editingId; });
         newItem.id = editingId;
         newItem.created = habits[index].created; // 建立日期也要保留，不然會變成今天
+        if (habits[index].done) {
+            newItem.done = habits[index].done; // 待辦事項的完成日期也要保留
+        }
         habits[index] = newItem;
     }
 
@@ -1044,6 +1123,10 @@ document.getElementById("add-habit-btn").addEventListener("click", function() {
 
 document.getElementById("add-goal-btn").addEventListener("click", function() {
     openAddDialog("goal");
+});
+
+document.getElementById("add-todo-btn").addEventListener("click", function() {
+    openAddDialog("todo");
 });
 
 // ===== 日曆：上個月、下個月 =====
