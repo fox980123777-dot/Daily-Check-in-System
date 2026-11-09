@@ -534,6 +534,20 @@ dialog h3 {
     font-size: 16px; /* 16px 以上，iPhone 點輸入框時才不會自動放大畫面 */
 }
 
+/* iPhone 的日期框會自己撐寬、超出右邊，造成左右不對稱
+   appearance: none 拿掉 Safari 內建的樣式，寬度才會乖乖照 100% */
+.field input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    min-height: 46px; /* 拿掉內建樣式後，沒選日期時高度會變扁，所以固定高度 */
+    text-align: left;
+}
+
+.field input[type="date"]::-webkit-date-and-time-value {
+    text-align: left; /* iPhone 預設把日期置中，改成靠左跟其他輸入框一樣 */
+}
+
 .date-fields {
     display: flex;
     gap: 10px;
