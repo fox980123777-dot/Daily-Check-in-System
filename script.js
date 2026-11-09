@@ -1,3 +1,7 @@
+// ===== 版本號 =====
+// 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
+const APP_VERSION = 8;
+
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
 // 短期目標也放在同一個清單裡，只是多了 type: "goal"、start（開始日期）、end（結束日期）
@@ -1198,3 +1202,4 @@ function fillCreatedDates() {
 migrateOldData();
 fillCreatedDates();
 render();
+document.getElementById("app-version").textContent = "版本 v" + APP_VERSION;
