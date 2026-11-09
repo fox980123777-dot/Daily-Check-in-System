@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 9;
+const APP_VERSION = 11;
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -775,8 +775,137 @@ function render() {
     if (recordDialog.open) {
         renderRecord(); // 紀錄視窗開著的話也要更新（例如其他裝置同步過來）
     }
+    renderNotices();
     drawIcons();
 }
+
+// ===== 通知（右上角小鈴鐺） =====
+// 通知不用存起來：每次畫面更新時，從習慣和打卡紀錄「算出」現在該提醒什麼
+// 每則通知有一個 id，看過的 id 存在 localStorage 的 "readNotices"，沒看過的就顯示紅點
+const noticeDialog = document.getElementById("notice-dialog");
+const STREAK_MILESTONES = [3, 7, 14, 21, 30, 50, 100, 150, 200, 365];
+let unreadWhenOpened = []; // 打開視窗那一刻還沒看過的通知，用來在列表上標紅點
+
+function loadReadNotices() {
+    const saved = localStorage.getItem("readNotices");
+    return saved === null ? [] : JSON.parse(saved);
+}
+
+// 回傳現在所有的通知：[{ id, icon, text, note }]
+function getNotices() {
+    const habits = loadHabits();
+    const records = loadRecords();
+    const now = new Date();
+    const todayKey = toDateKey(now);
+    const today = fromDateKey(todayKey);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayKey = toDateKey(yesterday);
+    const notices = [];
+
+    // 待辦事項：明天到期、今天到期、已經過期（還沒完成的才提醒）
+    habits.filter(function(h) { return isTodo(h) && !h.done; }).forEach(function(todo) {
+        const left = daysBetween(today, fromDateKey(todo.end));
+        if (left === 1) {
+            notices.push({ id: "todo-tomorrow-" + todo.id + "-" + todayKey, icon: "clock",
+                text: "「" + todo.name + "」明天到期", note: "待辦事項" });
+        } else if (left === 0) {
+            notices.push({ id: "todo-today-" + todo.id + "-" + todayKey, icon: "alarm-clock",
+                text: "「" + todo.name + "」今天到期", note: "待辦事項" });
+        } else if (left < 0) {
+            notices.push({ id: "todo-late-" + todo.id + "-" + todayKey, icon: "triangle-alert",
+                text: "「" + todo.name + "」已超過期限 " + (-left) + " 天", note: "待辦事項" });
+        }
+    });
+
+    // 短期目標：今天開始、今天是最後一天
+    habits.filter(isGoal).forEach(function(goal) {
+        if (goal.start === todayKey) {
+            notices.push({ id: "goal-start-" + goal.id, icon: "flag",
+                text: "「" + goal.name + "」今天開始", note: "短期目標" });
+        }
+        if (goal.end === todayKey) {
+            notices.push({ id: "goal-end-" + goal.id, icon: "flag",
+                text: "「" + goal.name + "」今天是最後一天，加油！", note: "短期目標" });
+        }
+    });
+
+    // 昨天沒有全部完成
+    const yesterdayItems = habits.filter(function(h) { return isActiveOn(h, yesterdayKey); });
+    if (yesterdayItems.length > 0 && !hasCheckin(records, yesterday)) {
+        const doneIds = records[yesterdayKey] || [];
+        const done = yesterdayItems.filter(function(h) { return doneIds.includes(h.id); }).length;
+        notices.push({ id: "missed-" + yesterdayKey, icon: "calendar-x",
+            text: "昨天沒有全部完成（" + done + " / " + yesterdayItems.length + "）",
+            note: "可以按左上角選單查看昨天的紀錄" });
+    }
+
+    // 晚上 8 點以後，今天還沒全部完成
+    const todayItems = habits.filter(function(h) { return isActiveOn(h, todayKey); });
+    if (now.getHours() >= 20 && todayItems.length > 0 && !hasCheckin(records, today)) {
+        const doneIds = records[todayKey] || [];
+        const left = todayItems.filter(function(h) { return !doneIds.includes(h.id); }).length;
+        notices.push({ id: "evening-" + todayKey, icon: "moon",
+            text: "今天還有 " + left + " 項沒完成", note: "睡前記得打卡喔" });
+    }
+
+    // 連續打卡里程碑：3、7、14、21、30… 天
+    const streak = countStreak(records);
+    if (STREAK_MILESTONES.includes(streak)) {
+        // 連續紀錄的最後一天（今天打完了就是今天，不然是昨天），同一段連續紀錄只通知一次
+        const lastDay = hasCheckin(records, today) ? todayKey : yesterdayKey;
+        notices.push({ id: "streak-" + streak + "-" + lastDay, icon: "flame",
+            text: "已經連續打卡 " + streak + " 天了，太厲害了！🎉", note: "連續打卡" });
+    }
+
+    return notices;
+}
+
+function renderNotices() {
+    const notices = getNotices();
+    const read = loadReadNotices();
+    const hasUnread = notices.some(function(n) { return !read.includes(n.id); });
+    document.getElementById("bell-badge").hidden = !hasUnread;
+
+    if (!noticeDialog.open) {
+        return;
+    }
+    const list = document.getElementById("notice-list");
+    list.innerHTML = "";
+    if (notices.length === 0) {
+        list.appendChild(makeEmpty("目前沒有通知"));
+    }
+    notices.forEach(function(notice) {
+        const row = document.createElement("li");
+        row.className = "setting-row";
+        row.appendChild(makeIcon(notice.icon));
+        row.appendChild(makeHabitText(notice.text, notice.note));
+        if (unreadWhenOpened.includes(notice.id)) {
+            const dot = document.createElement("span");
+            dot.className = "notice-dot"; // 這次才第一次看到的通知，右邊有小紅點
+            row.appendChild(dot);
+        }
+        list.appendChild(row);
+    });
+}
+
+// 按小鈴鐺：打開通知，並把現在的通知全部標成「看過了」
+document.getElementById("bell-btn").addEventListener("click", function() {
+    const notices = getNotices();
+    const read = loadReadNotices();
+    const ids = notices.map(function(n) { return n.id; });
+    unreadWhenOpened = ids.filter(function(id) { return !read.includes(id); });
+
+    // 只留下現在還存在的通知 id，舊的就不用記了，才不會越存越多
+    localStorage.setItem("readNotices", JSON.stringify(ids));
+
+    noticeDialog.showModal();
+    render();
+});
+
+document.getElementById("notice-close").addEventListener("click", function() {
+    noticeDialog.close();
+});
 
 // ===== 以前的打卡紀錄（左上角選單） =====
 const recordDialog = document.getElementById("record-dialog");

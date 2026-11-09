@@ -3,6 +3,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+import { getMessaging, getToken, isSupported } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-messaging.js";
+
+// 推播用的公開金鑰（VAPID），從 Firebase「專案設定 → Cloud Messaging」拿的，可以公開
+const VAPID_KEY = "BL-ipkuOkuvWa7ICwciDhWhdEEjoqWrTFIC8oZs15Df0FVxlgQ8PX_1c4yySToVJqFyAO0K-IqcxmNQv1mFAbn0";
 
 // ===== 專案設定（從 Firebase 網站複製的，這些是公開的，不是密碼） =====
 const firebaseConfig = {
@@ -164,9 +168,102 @@ function stopSync() {
     localStorage.removeItem("syncedUid");
 }
 
+// ===== 推播通知 =====
+// 流程：問使用者要不要允許通知 → 註冊 Service Worker → 跟 Firebase 拿這台裝置的「推播代號」(token)
+//      → 存到 Firestore 的 users/{uid}/tokens/{token}，後端就知道要推播給哪些裝置
+const pushInfo = document.getElementById("push-info");
+const pushBtn = document.getElementById("push-btn");
+let currentUser = null;
+
+// 這個瀏覽器能不能收推播？（iPhone 要從「主畫面」打開才可以）
+async function canPush() {
+    if (!("serviceWorker" in navigator) || !("Notification" in window)) {
+        return false;
+    }
+    try {
+        return await isSupported();
+    } catch (error) {
+        return false;
+    }
+}
+
+// 拿到這台裝置的推播代號，存到 Firestore
+async function saveDeviceToken(user) {
+    // Service Worker 檔案放在網站資料夾裡，所以用相對路徑註冊（GitHub Pages 網址有 /Daily-Check-in-System/）
+    const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+    await navigator.serviceWorker.ready;
+
+    const token = await getToken(getMessaging(app), {
+        vapidKey: VAPID_KEY,
+        serviceWorkerRegistration: registration
+    });
+
+    await setDoc(doc(db, "users", user.uid, "tokens", token), {
+        token: token,
+        device: navigator.userAgent, // 看得出是哪一種裝置，方便之後整理
+        updatedAt: serverTimestamp()
+    });
+    return registration;
+}
+
+// 依照現在的狀態，更新推播區塊的文字和按鈕
+async function updatePushArea(user) {
+    currentUser = user;
+    pushBtn.hidden = true;
+
+    if (!user) {
+        pushInfo.textContent = "請先登入，才能開啟推播通知";
+        return;
+    }
+    if (!(await canPush())) {
+        pushInfo.textContent = "這裡不能收推播。iPhone 請用 Safari 的「分享 → 加入主畫面」，再從主畫面的圖示打開";
+        return;
+    }
+    if (Notification.permission === "denied") {
+        pushInfo.textContent = "通知被封鎖了。請到手機的「設定 → 通知 → 每日打卡」打開";
+        return;
+    }
+    if (Notification.permission === "granted") {
+        pushInfo.textContent = "已開啟：這台裝置會在早上 8 點、晚上 8 點收到提醒";
+        // 推播代號偶爾會更換，每次打開都重新存一次，確保是最新的
+        saveDeviceToken(user).catch(function(error) {
+            console.error("更新推播代號失敗", error);
+        });
+        return;
+    }
+    pushInfo.textContent = "還沒開啟。開啟後，網頁關著也會收到提醒";
+    pushBtn.hidden = false;
+}
+
+pushBtn.addEventListener("click", async function() {
+    if (!currentUser) {
+        return;
+    }
+    // 一定要在「按按鈕」的時候才問，iPhone 不允許自動跳出詢問
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+        updatePushArea(currentUser);
+        return;
+    }
+    try {
+        pushInfo.textContent = "設定中…";
+        const registration = await saveDeviceToken(currentUser);
+        // 馬上顯示一則通知，確認這台裝置真的可以顯示
+        registration.showNotification("通知已開啟 🎉", {
+            body: "之後會在早上 8 點、晚上 8 點提醒你打卡",
+            icon: "icon-192.png"
+        });
+    } catch (error) {
+        console.error(error);
+        alert("開啟推播失敗：" + error.message);
+    }
+    updatePushArea(currentUser);
+});
+
 // ===== 登入狀態改變時，更新畫面 =====
 // 打開網頁、登入、登出的時候都會自動執行；user 是登入的人，沒登入就是 null
 onAuthStateChanged(auth, async function(user) {
+    updatePushArea(user);
     if (user) {
         userInfo.textContent = "已登入：" + user.displayName + "（同步中…）";
         loginBtn.hidden = true;

@@ -20,9 +20,9 @@
     <!-- 所有圖示名稱可以到 https://lucide.dev/icons 查 -->
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
-    <!-- ?v=9 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
+    <!-- ?v=11 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
          記得 script.js 最上面的 APP_VERSION 也要改成一樣的數字（設定頁最下面會顯示） -->
-    <link rel="stylesheet" href="style.css?v=9">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 
@@ -30,7 +30,10 @@
         <header class="topbar">
             <button class="icon-btn" id="menu-btn" aria-label="查看以前的打卡紀錄"><i data-lucide="menu"></i></button>
             <h1 id="page-title">今日</h1>
-            <button class="icon-btn" aria-label="通知"><i data-lucide="bell"></i></button>
+            <button class="icon-btn bell-btn" id="bell-btn" aria-label="通知">
+                <i data-lucide="bell"></i>
+                <span class="badge" id="bell-badge" hidden></span><!-- 有沒看過的通知時顯示紅點 -->
+            </button>
         </header>
 
         <!-- ===== 今日頁 ===== -->
@@ -155,6 +158,14 @@
             </div>
 
             <div class="section-head">
+                <h2>推播通知</h2>
+            </div>
+            <p class="account-info" id="push-info">請先登入，才能開啟推播通知</p>
+            <div class="backup-row">
+                <button class="backup-btn" id="push-btn" hidden>開啟推播通知</button>
+            </div>
+
+            <div class="section-head">
                 <h2>備份資料</h2>
             </div>
             <div class="backup-row">
@@ -204,6 +215,15 @@
         </form>
     </dialog>
 
+    <!-- ===== 通知（按右上角小鈴鐺打開） ===== -->
+    <dialog id="notice-dialog">
+        <h3>通知</h3>
+        <ul class="habit-list" id="notice-list"></ul>
+        <div class="dialog-buttons">
+            <button type="button" id="notice-close">關閉</button>
+        </div>
+    </dialog>
+
     <!-- ===== 以前的打卡紀錄（按左上角選單打開） ===== -->
     <dialog id="record-dialog">
         <h3>打卡紀錄</h3>
@@ -232,8 +252,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=9"></script>
+<script src="script.js?v=11"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=9"></script>
+<script type="module" src="firebase.js?v=11"></script>
 </body>
 </html>

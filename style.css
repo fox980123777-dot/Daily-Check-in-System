@@ -639,6 +639,39 @@ dialog h3 {
     font-weight: 600;
 }
 
+/* ===== 通知（小鈴鐺） ===== */
+.bell-btn {
+    position: relative; /* 讓紅點可以疊在鈴鐺的右上角 */
+}
+
+.badge {
+    position: absolute;
+    top: 5px;
+    right: 6px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ef4444;
+    border: 2px solid var(--bg); /* 白色外框，紅點跟鈴鐺才不會黏在一起 */
+}
+
+#notice-dialog {
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+#notice-list {
+    margin-bottom: 16px;
+}
+
+.notice-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    flex-shrink: 0;
+}
+
 /* ===== 以前的打卡紀錄 ===== */
 #record-dialog {
     max-height: 85vh;
