@@ -695,8 +695,126 @@ function render() {
     renderCalendar();
     renderStats();
     renderSettings();
+    if (recordDialog.open) {
+        renderRecord(); // 紀錄視窗開著的話也要更新（例如其他裝置同步過來）
+    }
     drawIcons();
 }
+
+// ===== 以前的打卡紀錄（左上角選單） =====
+const recordDialog = document.getElementById("record-dialog");
+let recordDay = ""; // 正在看哪一天，例如 "2026-11-08"
+
+// 「昨天」「前天」或「3 天前」
+function daysAgoText(key) {
+    const ago = daysBetween(fromDateKey(key), fromDateKey(toDateKey(new Date())));
+    if (ago === 0) return "今天";
+    if (ago === 1) return "昨天";
+    if (ago === 2) return "前天";
+    return ago + " 天前";
+}
+
+function renderRecord() {
+    const records = loadRecords();
+    const habits = loadHabits();
+    const todayKey = toDateKey(new Date());
+    const doneIds = records[recordDay] || [];
+
+    document.getElementById("record-title").textContent = daysAgoText(recordDay);
+    document.getElementById("record-pick").value = recordDay;
+    document.getElementById("record-pick").max = todayKey; // 不能選未來
+    document.getElementById("record-next").disabled = (recordDay >= todayKey);
+
+    // 那天要做的項目（習慣 + 期間內的短期目標）
+    const items = habits.filter(function(h) { return isActiveOn(h, recordDay); });
+    const doneCount = items.filter(function(h) { return doneIds.includes(h.id); }).length;
+
+    const summary = document.getElementById("record-summary");
+    let text = formatDate(fromDateKey(recordDay));
+    if (items.length > 0) {
+        text = text + " · 完成 " + doneCount + " / " + items.length;
+    }
+    if (hasCheckin(records, fromDateKey(recordDay))) {
+        text = text + " · 打卡成功";
+    }
+    summary.textContent = text;
+    summary.classList.toggle("success", hasCheckin(records, fromDateKey(recordDay)));
+
+    const list = document.getElementById("record-list");
+    list.innerHTML = "";
+
+    if (items.length === 0 && doneIds.length === 0) {
+        list.appendChild(makeEmpty("這天還沒有任何習慣"));
+    }
+
+    // 每個項目：完成 → 打勾；沒完成 → 灰色圓點（只能看，不能改）
+    items.forEach(function(item) {
+        const row = document.createElement("li");
+        row.className = "setting-row";
+        row.appendChild(makeIcon(item.icon));
+        row.appendChild(makeHabitText(item.name, isGoal(item) ? "短期目標" : item.note));
+        if (doneIds.includes(item.id)) {
+            row.appendChild(makeIcon("circle-check"));
+        } else {
+            const dot = document.createElement("span");
+            dot.className = "dot";
+            row.appendChild(dot);
+        }
+        list.appendChild(row);
+    });
+
+    // 有完成、但現在已經不在清單裡的（舊版紀錄、已刪除的項目）
+    doneIds.forEach(function(id) {
+        if (items.some(function(h) { return h.id === id; })) {
+            return;
+        }
+        const row = document.createElement("li");
+        row.className = "setting-row";
+        row.appendChild(makeIcon("circle-check"));
+        row.appendChild(makeHabitText(id === "old-checkin" ? "有打卡" : "已刪除的項目", id === "old-checkin" ? "舊版紀錄" : ""));
+        list.appendChild(row);
+    });
+
+    drawIcons();
+}
+
+// 往前或往後移動幾天
+function moveRecordDay(step) {
+    const date = fromDateKey(recordDay);
+    date.setDate(date.getDate() + step);
+    recordDay = toDateKey(date);
+    renderRecord();
+}
+
+// 按左上角選單 → 打開視窗，先顯示昨天
+document.getElementById("menu-btn").addEventListener("click", function() {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    recordDay = toDateKey(yesterday);
+    renderRecord();
+    recordDialog.showModal();
+});
+
+document.getElementById("record-prev").addEventListener("click", function() {
+    moveRecordDay(-1);
+});
+
+document.getElementById("record-next").addEventListener("click", function() {
+    moveRecordDay(1);
+});
+
+// 用日期選擇器直接跳到某一天
+document.getElementById("record-pick").addEventListener("change", function(event) {
+    const key = event.target.value;
+    if (key && key <= toDateKey(new Date())) {
+        recordDay = key;
+        renderRecord();
+    }
+});
+
+document.getElementById("record-close").addEventListener("click", function() {
+    recordDialog.close();
+});
 
 // 把畫面上所有 <i data-lucide="..."> 換成 Lucide 圖示
 // （如果沒有網路、圖示庫載不到，就跳過，App 還是能用）

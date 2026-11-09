@@ -20,14 +20,14 @@
     <!-- 所有圖示名稱可以到 https://lucide.dev/icons 查 -->
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
-    <!-- ?v=5 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案 -->
-    <link rel="stylesheet" href="style.css?v=5">
+    <!-- ?v=6 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案 -->
+    <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
     <main class="app">
         <header class="topbar">
-            <button class="icon-btn" aria-label="選單"><i data-lucide="menu"></i></button>
+            <button class="icon-btn" id="menu-btn" aria-label="查看以前的打卡紀錄"><i data-lucide="menu"></i></button>
             <h1 id="page-title">今日</h1>
             <button class="icon-btn" aria-label="通知"><i data-lucide="bell"></i></button>
         </header>
@@ -195,6 +195,27 @@
         </form>
     </dialog>
 
+    <!-- ===== 以前的打卡紀錄（按左上角選單打開） ===== -->
+    <dialog id="record-dialog">
+        <h3>打卡紀錄</h3>
+        <div class="cal-head">
+            <button class="icon-btn" id="record-prev" aria-label="前一天"><i data-lucide="chevron-left"></i></button>
+            <div class="record-head">
+                <h2 id="record-title"></h2>
+                <p class="record-summary" id="record-summary"></p>
+            </div>
+            <button class="icon-btn" id="record-next" aria-label="後一天"><i data-lucide="chevron-right"></i></button>
+        </div>
+        <label class="field">
+            跳到某一天
+            <input type="date" id="record-pick">
+        </label>
+        <ul class="habit-list" id="record-list"></ul>
+        <div class="dialog-buttons">
+            <button type="button" id="record-close">關閉</button>
+        </div>
+    </dialog>
+
     <nav class="tabbar">
         <button class="tab active" data-page="today"><i data-lucide="house"></i>今日</button>
         <button class="tab" data-page="calendar"><i data-lucide="calendar"></i>日曆</button>
@@ -202,8 +223,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=5"></script>
+<script src="script.js?v=6"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=5"></script>
+<script type="module" src="firebase.js?v=6"></script>
 </body>
 </html>

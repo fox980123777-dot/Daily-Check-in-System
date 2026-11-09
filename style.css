@@ -625,6 +625,35 @@ dialog h3 {
     font-weight: 600;
 }
 
+/* ===== 以前的打卡紀錄 ===== */
+#record-dialog {
+    max-height: 85vh;
+    overflow-y: auto; /* 項目很多時可以在視窗裡捲動 */
+}
+
+.record-head {
+    text-align: center;
+}
+
+.record-summary {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.record-summary.success {
+    color: var(--accent);
+}
+
+#record-list {
+    margin-bottom: 16px;
+}
+
+/* 已經是今天，不能再往後 */
+.icon-btn:disabled {
+    opacity: 0.3;
+}
+
 /* ===== 最下面的選單 ===== */
 .tabbar {
     position: fixed;
