@@ -20,8 +20,8 @@
     <!-- 所有圖示名稱可以到 https://lucide.dev/icons 查 -->
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
-    <!-- ?v=2 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案 -->
-    <link rel="stylesheet" href="style.css?v=3">
+    <!-- ?v=4 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案 -->
+    <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -138,6 +138,15 @@
             <ul class="habit-list" id="manage-list"></ul>
 
             <div class="section-head">
+                <h2>帳戶</h2>
+            </div>
+            <p class="account-info" id="user-info">尚未登入</p>
+            <div class="backup-row">
+                <button class="backup-btn" id="login-btn">用 Google 登入</button>
+                <button class="backup-btn" id="logout-btn" hidden>登出</button>
+            </div>
+
+            <div class="section-head">
                 <h2>備份資料</h2>
             </div>
             <div class="backup-row">
@@ -193,6 +202,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=3"></script>
+<script src="script.js?v=4"></script>
+<!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
+<script type="module" src="firebase.js?v=4"></script>
 </body>
 </html>

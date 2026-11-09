@@ -468,6 +468,11 @@ svg {
     color: #dc2626;
 }
 
+/* ===== 帳戶 ===== */
+.account-info {
+    margin-bottom: 12px;
+}
+
 /* ===== 備份資料 ===== */
 .backup-row {
     display: flex;
