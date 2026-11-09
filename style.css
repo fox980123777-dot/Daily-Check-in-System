@@ -24,6 +24,9 @@
 
 * {
     box-sizing: border-box;
+    /* 手機上快速點兩下不要放大畫面（兩指縮放還是可以用）
+       順便讓點擊反應更快：瀏覽器不用再等「是不是要點第二下」 */
+    touch-action: manipulation;
 }
 
 /* 有 hidden 的元素一定要藏起來（不然會被下面的 display: flex 蓋掉） */
