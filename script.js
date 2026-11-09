@@ -67,10 +67,23 @@ function formatDate(date) {
     return (date.getMonth() + 1) + " 月 " + date.getDate() + " 日，星期" + WEEKDAYS[date.getDay()];
 }
 
-// 某一天有沒有打卡（完成至少一個項目就算）
+// 某一天有沒有打卡成功：那天要做的項目「全部完成（100%）」才算
 function hasCheckin(records, date) {
-    const done = records[toDateKey(date)];
-    return done !== undefined && done.length > 0;
+    const key = toDateKey(date);
+    const doneIds = records[key] || [];
+
+    // 舊版（第 4 階段）的紀錄只知道「有打卡」，照樣算成功，連續天數才不會斷掉
+    if (doneIds.includes("old-checkin")) {
+        return true;
+    }
+
+    // 那天需要做的項目（習慣 + 期間內的短期目標）
+    const items = loadHabits().filter(function(h) { return isActiveOn(h, key); });
+    if (items.length === 0) {
+        return false;
+    }
+    // every：每一個都符合才會是 true
+    return items.every(function(h) { return doneIds.includes(h.id); });
 }
 
 // 計算連續打卡天數
@@ -309,6 +322,8 @@ function renderCalendar() {
         if (hasCheckin(records, date)) {
             cell.classList.add("done");
             checkinDays = checkinDays + 1;
+        } else if (records[key] !== undefined) {
+            cell.classList.add("partial"); // 有做一些，但還沒 100%
         }
         if (key === todayKey) {
             cell.classList.add("today");
@@ -400,9 +415,110 @@ let statsRange = "week"; // "week" = 本週、"month" = 本月
 // 某個項目在那一天要不要做？習慣每天都要；短期目標只有在期間內才要
 function isActiveOn(item, key) {
     if (!isGoal(item)) {
-        return true;
+        // 建立之前的日子不用做（沒有 created 的話就當作一直都有）
+        return !item.created || key >= item.created;
     }
     return key >= item.start && key <= item.end; // 日期文字可以直接比大小
+}
+
+// 「2026/11/2」
+function slashDate(key) {
+    const date = fromDateKey(key);
+    return date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate();
+}
+
+// 算出一個習慣從開始到現在的紀錄
+function habitHistory(habit, records) {
+    const today = fromDateKey(toDateKey(new Date()));
+
+    // 某一天有沒有做這個習慣
+    function doneOn(date) {
+        return (records[toDateKey(date)] || []).includes(habit.id);
+    }
+
+    // 第幾天：開始那天算第 1 天
+    const dayNumber = daysBetween(fromDateKey(habit.created), today) + 1;
+
+    // 累計完成：所有紀錄裡有這個習慣的天數
+    let totalDone = 0;
+    Object.keys(records).forEach(function(key) {
+        if (records[key].includes(habit.id)) {
+            totalDone = totalDone + 1;
+        }
+    });
+
+    // 目前連續：跟首頁的連續天數一樣，今天還沒做就從昨天開始往回數
+    let streak = 0;
+    const day = new Date(today);
+    if (!doneOn(day)) {
+        day.setDate(day.getDate() - 1);
+    }
+    while (doneOn(day)) {
+        streak = streak + 1;
+        day.setDate(day.getDate() - 1);
+    }
+
+    // 停滯：今天還沒做的話，從昨天往回數「連續幾天沒做」（不算開始之前的日子）
+    let stalled = 0;
+    if (!doneOn(today)) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - 1);
+        while (toDateKey(d) >= habit.created && !doneOn(d)) {
+            stalled = stalled + 1;
+            d.setDate(d.getDate() - 1);
+        }
+    }
+
+    return { dayNumber: dayNumber, totalDone: totalDone, streak: streak, stalled: stalled };
+}
+
+// 小數字 + 下面的說明文字
+function makeNumber(value, name, warn) {
+    const box = document.createElement("div");
+    const num = document.createElement("span");
+    num.className = "stats-num";
+    if (warn) {
+        num.classList.add("warn");
+    }
+    num.textContent = value;
+    const label = document.createElement("span");
+    label.className = "stats-name";
+    label.textContent = name;
+    box.appendChild(num);
+    box.appendChild(label);
+    return box;
+}
+
+function renderHistory(habits, records) {
+    const list = document.getElementById("history-list");
+    list.innerHTML = "";
+    const dailyHabits = habits.filter(function(h) { return !isGoal(h); });
+
+    if (dailyHabits.length === 0) {
+        list.appendChild(makeEmpty("還沒有長期習慣"));
+    }
+
+    dailyHabits.forEach(function(habit) {
+        const info = habitHistory(habit, records);
+
+        const card = document.createElement("li");
+        card.className = "history-card";
+
+        const head = document.createElement("div");
+        head.className = "history-head";
+        head.appendChild(makeIcon(habit.icon));
+        head.appendChild(makeHabitText(habit.name, "從 " + slashDate(habit.created) + " 開始 · 第 " + info.dayNumber + " 天"));
+        card.appendChild(head);
+
+        const numbers = document.createElement("div");
+        numbers.className = "stats-numbers";
+        numbers.appendChild(makeNumber(info.streak + " 天", "目前連續", false));
+        numbers.appendChild(makeNumber(info.totalDone + " 天", "累計完成", false));
+        numbers.appendChild(makeNumber(info.stalled + " 天", "停滯", info.stalled >= 3)); // 停 3 天以上變橘色
+        card.appendChild(numbers);
+
+        list.appendChild(card);
+    });
 }
 
 // 本週（星期一 ~ 星期日）或本月（1 號 ~ 月底）的每一天
@@ -483,8 +599,9 @@ function renderStats() {
 
     let doneTotal = 0;     // 總共完成幾次
     let needTotal = 0;     // 總共應該做幾次
-    let checkinDays = 0;   // 有打卡的天數
-    let perfectDays = 0;   // 全部完成的天數
+    let checkinDays = 0;   // 打卡成功（100%）的天數
+    let run = 0;           // 數到目前為止連續成功幾天
+    let bestRun = 0;       // 這段時間最長連續成功幾天
 
     days.forEach(function(date) {
         const key = toDateKey(date);
@@ -496,11 +613,12 @@ function renderStats() {
         if (!isFuture) {
             doneTotal = doneTotal + done;
             needTotal = needTotal + items.length;
-            if (doneIds.length > 0) {
+            if (hasCheckin(records, date)) {
                 checkinDays = checkinDays + 1;
-            }
-            if (items.length > 0 && done === items.length) {
-                perfectDays = perfectDays + 1;
+                run = run + 1;
+                bestRun = Math.max(bestRun, run);
+            } else if (key !== todayKey) {
+                run = 0; // 中斷了，重新數（今天還沒完成不算中斷）
             }
         }
 
@@ -523,7 +641,7 @@ function renderStats() {
     document.getElementById("stats-bar").style.width = rate + "%";
     document.getElementById("stats-done").textContent = doneTotal;
     document.getElementById("stats-days").textContent = checkinDays + " / " + pastDays;
-    document.getElementById("stats-perfect").textContent = perfectDays + " 天";
+    document.getElementById("stats-best").textContent = bestRun + " 天";
 
     // 各項目完成率：只算到今天為止、而且那天需要做的日子
     const pastKeys = days.map(toDateKey).filter(function(k) { return k <= todayKey; });
@@ -559,6 +677,8 @@ function renderStats() {
     if (list.children.length === 0) {
         list.appendChild(makeEmpty("還沒有習慣，先到今日頁新增一個吧"));
     }
+
+    renderHistory(habits, records);
 }
 
 function render() {
@@ -746,7 +866,8 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         id: "h" + Date.now(), // 用現在的時間當代號，保證不會重複
         name: name,
         note: note,
-        icon: selectedIcon // 下拉選單選的圖示
+        icon: selectedIcon, // 下拉選單選的圖示
+        created: toDateKey(new Date()) // 建立日期：今天
     };
 
     if (addingType === "goal") {
@@ -773,6 +894,7 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         // 編輯：找到原本那一個，換掉內容（id 不變，所以以前的打卡紀錄都還在）
         const index = habits.findIndex(function(h) { return h.id === editingId; });
         newItem.id = editingId;
+        newItem.created = habits[index].created; // 建立日期也要保留，不然會變成今天
         habits[index] = newItem;
     }
 
@@ -847,6 +969,30 @@ document.addEventListener("visibilitychange", function() {
     }
 });
 
+// 以前新增的習慣沒有建立日期：用「第一次打卡那天」補上，從沒打過卡就用今天
+function fillCreatedDates() {
+    const habits = loadHabits();
+    const records = loadRecords();
+    const days = Object.keys(records).sort(); // 由舊到新排好
+    let changed = false;
+
+    habits.forEach(function(habit) {
+        if (isGoal(habit) || habit.created) {
+            return;
+        }
+        const firstDay = days.find(function(key) {
+            return records[key].includes(habit.id);
+        });
+        habit.created = firstDay || toDateKey(new Date());
+        changed = true;
+    });
+
+    if (changed) {
+        saveHabits(habits);
+    }
+}
+
 // ===== 開始 =====
 migrateOldData();
+fillCreatedDates();
 render();

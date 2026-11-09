@@ -288,6 +288,11 @@ svg {
     font-weight: 600;
 }
 
+/* 只完成一部分的日子：淺灰底（還不算打卡成功） */
+.cal-day.partial {
+    background: var(--line);
+}
+
 /* 今天：外面一圈框 */
 .cal-day.today {
     box-shadow: inset 0 0 0 2px var(--text);
@@ -295,6 +300,11 @@ svg {
 
 .cal-day.done.today {
     box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text);
+}
+
+/* 淺灰色的日子就算是今天，也不要黑框 */
+.cal-day.partial.today {
+    box-shadow: none;
 }
 
 /* 未來的日子：淡一點 */
@@ -422,6 +432,25 @@ svg {
     font-size: 15px;
     font-weight: 700;
     flex-shrink: 0;
+}
+
+/* 習慣紀錄：每個習慣一張小卡片 */
+.history-card {
+    padding: 16px;
+    background: var(--card);
+    border-radius: 14px;
+}
+
+.history-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+/* 停滯太久：數字變橘色提醒 */
+.stats-num.warn {
+    color: var(--accent);
 }
 
 /* ===== 設定頁 ===== */
