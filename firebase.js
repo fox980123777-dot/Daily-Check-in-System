@@ -66,6 +66,7 @@ function getLocalData() {
 function applyCloudData(data) {
     localStorage.setItem("habits", JSON.stringify(data.habits || []));
     localStorage.setItem("records", JSON.stringify(data.records || {}));
+    removeUnknownRecords(); // 有清掉東西的話會自動再傳回雲端
     render();
 }
 

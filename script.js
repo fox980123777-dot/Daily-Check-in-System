@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 19;
+const APP_VERSION = 20;
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -255,6 +255,34 @@ function migrateOldData() {
     localStorage.removeItem("checkins");
     localStorage.removeItem("lastCheckinTime");
     localStorage.removeItem("checkedIn");
+}
+
+// 以前刪除項目會把它整個丟掉，打卡紀錄裡只剩一個查不到名字的代號（日曆顯示「已刪除的項目」）
+// 現在刪除會保留項目（加上 deleted），不會再產生這種代號；這裡把以前留下來的清掉
+// App 打開時、從雲端收到資料時都會跑一次
+function removeUnknownRecords() {
+    if (localStorage.getItem("habits") === null) {
+        return; // 還沒有自己的清單（用的是預設習慣），先不要動紀錄
+    }
+    const ids = loadAllHabits().map(function(h) { return h.id; });
+    const records = loadRecords();
+    let changed = false;
+    Object.keys(records).forEach(function(key) {
+        const kept = records[key].filter(function(id) {
+            return id === "old-checkin" || ids.includes(id);
+        });
+        if (kept.length !== records[key].length) {
+            changed = true;
+            if (kept.length === 0) {
+                delete records[key]; // 那天一個都不剩，就把這天拿掉
+            } else {
+                records[key] = kept;
+            }
+        }
+    });
+    if (changed) {
+        saveRecords(records);
+    }
 }
 
 // ===== 做出畫面上的小零件 =====
@@ -1511,6 +1539,7 @@ function fillCreatedDates() {
 
 // ===== 開始 =====
 migrateOldData();
+removeUnknownRecords();
 fillCreatedDates();
 render();
 document.getElementById("app-version").textContent = "版本 v" + APP_VERSION;
