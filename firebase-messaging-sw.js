@@ -17,8 +17,8 @@ self.addEventListener("push", function(event) {
     event.waitUntil(
         self.registration.showNotification(data.title || "每日打卡", {
             body: data.body || "",
-            icon: "icon-192.png",
-            badge: "icon-192.png"
+            icon: "done-flame.png",
+            badge: "done-flame.png"
         })
     );
 });
