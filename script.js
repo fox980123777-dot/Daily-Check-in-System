@@ -21,7 +21,9 @@ const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 // ===== 讀取、儲存資料 =====
 // habits：習慣 + 短期目標清單（陣列）
 // records：每天完成了哪些項目，例如 { "2026-11-08": ["read", "sport"] }
-function loadHabits() {
+// 刪除的項目不會真的丟掉，只是加上 deleted: "刪除的日期"，日曆和紀錄才查得到它的名字
+// loadAllHabits：全部（含已刪除）；loadHabits：只有還在用的
+function loadAllHabits() {
     const saved = localStorage.getItem("habits");
     if (saved === null) {
         return DEFAULT_HABITS;
@@ -29,9 +31,29 @@ function loadHabits() {
     return JSON.parse(saved);
 }
 
+function loadHabits() {
+    return loadAllHabits().filter(function(h) { return !h.deleted; });
+}
+
+// 存檔時把已刪除的項目補回去，不然會被沒有它們的清單蓋掉
 function saveHabits(habits) {
-    localStorage.setItem("habits", JSON.stringify(habits));
+    const deleted = loadAllHabits().filter(function(h) {
+        return h.deleted && !habits.some(function(x) { return x.id === h.id; });
+    });
+    localStorage.setItem("habits", JSON.stringify(habits.concat(deleted)));
     uploadToCloud();
+}
+
+// 已經不在清單裡的項目要顯示的圖示、名字和說明
+function goneItemText(id) {
+    if (id === "old-checkin") {
+        return { name: "有打卡", note: "舊版紀錄", icon: "circle-check" };
+    }
+    const item = loadAllHabits().find(function(h) { return h.id === id; });
+    if (item) {
+        return { name: item.name, note: "已刪除", icon: item.icon };
+    }
+    return { name: "已刪除的項目", note: "以前刪的，沒有留下名字", icon: "circle-check" };
 }
 
 function loadRecords() {
@@ -463,8 +485,9 @@ function renderCalendar() {
             row.appendChild(makeHabitText(item.name, isGoal(item) ? "短期目標" : item.note));
         } else {
             // 舊版的打卡，或已經被刪掉的習慣
-            row.appendChild(makeIcon("circle-check"));
-            row.appendChild(makeHabitText(id === "old-checkin" ? "有打卡" : "已刪除的項目", id === "old-checkin" ? "舊版紀錄" : ""));
+            const gone = goneItemText(id);
+            row.appendChild(makeIcon(gone.icon));
+            row.appendChild(makeHabitText(gone.name, gone.note));
         }
         list.appendChild(row);
     });
@@ -1003,8 +1026,10 @@ function renderRecord() {
         }
         const row = document.createElement("li");
         row.className = "setting-row";
+        const gone = goneItemText(id);
+        row.appendChild(makeIcon(gone.icon));
+        row.appendChild(makeHabitText(gone.name, gone.note));
         row.appendChild(makeIcon("circle-check"));
-        row.appendChild(makeHabitText(id === "old-checkin" ? "有打卡" : "已刪除的項目", id === "old-checkin" ? "舊版紀錄" : ""));
         list.appendChild(row);
     });
 
@@ -1084,8 +1109,12 @@ function deleteHabit(item) {
     if (!confirm("確定要刪除「" + item.name + "」嗎？")) {
         return;
     }
-    const habits = loadHabits().filter(function(h) {
-        return h.id !== item.id;
+    // 不真的刪掉，標上刪除日期就好（其他畫面用 loadHabits 就看不到它了）
+    const habits = loadAllHabits().map(function(h) {
+        if (h.id === item.id) {
+            return Object.assign({}, h, { deleted: toDateKey(new Date()) });
+        }
+        return h;
     });
     saveHabits(habits);
     render();

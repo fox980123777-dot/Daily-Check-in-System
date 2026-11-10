@@ -56,9 +56,9 @@ let cloudRef = null;        // 目前登入者的雲端文件位置，沒登入�
 let stopListening = null;   // 停止監聽雲端的函式（登出時要呼叫）
 let uploadTimer = null;
 
-// 讀出這台裝置的資料（loadHabits、loadRecords 是 script.js 裡的函式）
+// 讀出這台裝置的資料（loadAllHabits、loadRecords 是 script.js 裡的函式）
 function getLocalData() {
-    return { habits: loadHabits(), records: loadRecords() };
+    return { habits: loadAllHabits(), records: loadRecords() }; // 含已刪除的，雲端才留得住名字
 }
 
 // 把雲端的資料寫進這台裝置，再重畫畫面

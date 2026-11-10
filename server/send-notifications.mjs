@@ -123,7 +123,7 @@ console.log("模式：" + MODE + "，台灣日期：" + today);
 const users = await db.collection("users").get();
 for (const userDoc of users.docs) {
     const data = userDoc.data();
-    const habits = data.habits || [];
+    const habits = (data.habits || []).filter(function(h) { return !h.deleted; }); // 已刪除的不推播
     const records = data.records || {};
 
     let message = null;
