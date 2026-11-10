@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 16;
+const APP_VERSION = 17;
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -245,15 +245,6 @@ function makeIcon(name) {
     return icon;
 }
 
-// 完成的記號：小火焰圖片（取代原本的綠色打勾）
-function makeDoneMark() {
-    const img = document.createElement("img");
-    img.className = "done-mark";
-    img.src = "done-flame.png";
-    img.alt = "已完成";
-    return img;
-}
-
 // 做出名稱 + 小字說明
 function makeHabitText(name, note) {
     const box = document.createElement("span");
@@ -305,7 +296,7 @@ function makeRow(item, isDone) {
 
     // 右邊：完成 → 打勾圖示；沒完成 → 灰色圓點
     if (isDone) {
-        button.appendChild(makeDoneMark());
+        button.appendChild(makeIcon("circle-check"));
     } else {
         const dot = document.createElement("span");
         dot.className = "dot";
@@ -472,7 +463,7 @@ function renderCalendar() {
             row.appendChild(makeHabitText(item.name, isGoal(item) ? "短期目標" : item.note));
         } else {
             // 舊版的打卡，或已經被刪掉的習慣
-            row.appendChild(makeDoneMark());
+            row.appendChild(makeIcon("circle-check"));
             row.appendChild(makeHabitText(id === "old-checkin" ? "有打卡" : "已刪除的項目", id === "old-checkin" ? "舊版紀錄" : ""));
         }
         list.appendChild(row);
@@ -996,7 +987,7 @@ function renderRecord() {
         row.appendChild(makeIcon(item.icon));
         row.appendChild(makeHabitText(item.name, isGoal(item) ? "短期目標" : item.note));
         if (doneIds.includes(item.id)) {
-            row.appendChild(makeDoneMark());
+            row.appendChild(makeIcon("circle-check"));
         } else {
             const dot = document.createElement("span");
             dot.className = "dot";
@@ -1012,7 +1003,7 @@ function renderRecord() {
         }
         const row = document.createElement("li");
         row.className = "setting-row";
-        row.appendChild(makeDoneMark());
+        row.appendChild(makeIcon("circle-check"));
         row.appendChild(makeHabitText(id === "old-checkin" ? "有打卡" : "已刪除的項目", id === "old-checkin" ? "舊版紀錄" : ""));
         list.appendChild(row);
     });

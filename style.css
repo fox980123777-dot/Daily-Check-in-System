@@ -241,15 +241,6 @@ svg {
     flex-shrink: 0;
 }
 
-/* 已完成：小火焰（圖片有深色底，裁成圓形看起來像徽章） */
-.done-mark {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    display: block;
-}
-
 .empty {
     color: var(--muted);
     text-align: center;
