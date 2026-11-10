@@ -251,7 +251,7 @@ pushBtn.addEventListener("click", async function() {
         // 馬上顯示一則通知，確認這台裝置真的可以顯示
         registration.showNotification("通知已開啟 🎉", {
             body: "之後會在早上 8 點、晚上 8 點提醒你打卡",
-            icon: "done-flame.png"
+            icon: "icon-192.png"
         });
     } catch (error) {
         console.error(error);
