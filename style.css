@@ -235,6 +235,76 @@ svg {
     color: var(--muted);
 }
 
+/* ===== 每日筆記 ===== */
+/* 一列 = 打卡按鈕 + 疊在上面的筆記按鈕（按鈕裡面不能放按鈕，所以用疊的） */
+.habit-row {
+    position: relative;
+}
+
+/* 打卡按鈕裡留給筆記按鈕的空位 */
+.note-space {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+/* 位置：右邊內距 16 + 圓點 20 + 間距 14 = 50px，剛好蓋在 .note-space 上 */
+.note-btn {
+    position: absolute;
+    top: 50%;
+    right: 50px;
+    width: 32px;
+    height: 32px;
+    margin-top: -16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+}
+
+.note-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* 今天已經寫過筆記：按鈕變成主題色 */
+.note-btn.has-note {
+    color: var(--accent);
+}
+
+/* 項目小字下面的筆記預覽，只顯示一行，太長用 … */
+.habit-memo {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.note-date {
+    margin: -10px 0 14px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+/* 筆記輸入框：樣式跟其他輸入框一樣，可以打好幾行 */
+.field textarea {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+    font: inherit;
+    font-size: 16px; /* 16px 以上，iPhone 點輸入框時才不會自動放大畫面 */
+    resize: vertical;
+}
+
 /* 短期進度的時間進度條（比上面的細一點） */
 .goal-bar {
     height: 6px;

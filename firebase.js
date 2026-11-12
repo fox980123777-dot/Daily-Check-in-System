@@ -49,7 +49,7 @@ logoutBtn.addEventListener("click", function() {
 
 // ===== 雲端同步 =====
 // 每個使用者在 Firestore 裡有一份文件：users/{使用者的 uid}
-// 內容是 { habits: [...], records: {...}, updatedAt: 時間 }
+// 內容是 { habits: [...], records: {...}, notes: {...}, updatedAt: 時間 }
 // localStorage 還是繼續用，當作「這台裝置的副本」，沒網路也能打卡
 
 let cloudRef = null;        // 目前登入者的雲端文件位置，沒登入就是 null
@@ -58,7 +58,7 @@ let uploadTimer = null;
 
 // 讀出這台裝置的資料（loadAllHabits、loadRecords 是 script.js 裡的函式）
 function getLocalData() {
-    return { habits: loadAllHabits(), records: loadRecords() }; // 含已刪除的，雲端才留得住名字
+    return { habits: loadAllHabits(), records: loadRecords(), notes: loadNotes() }; // 含已刪除的，雲端才留得住名字
 }
 
 // 把雲端的資料寫進這台裝置，再重畫畫面
@@ -66,6 +66,7 @@ function getLocalData() {
 function applyCloudData(data) {
     localStorage.setItem("habits", JSON.stringify(data.habits || []));
     localStorage.setItem("records", JSON.stringify(data.records || {}));
+    localStorage.setItem("notes", JSON.stringify(data.notes || {}));
     removeUnknownRecords(); // 有清掉東西的話會自動再傳回雲端
     render();
 }
@@ -84,8 +85,9 @@ function toSortedText(value) {
 }
 
 function isSameData(a, b) {
-    return toSortedText({ habits: a.habits, records: a.records })
-        === toSortedText({ habits: b.habits, records: b.records });
+    // 舊的雲端資料沒有 notes，當作空的 {} 來比
+    return toSortedText({ habits: a.habits, records: a.records, notes: a.notes || {} })
+        === toSortedText({ habits: b.habits, records: b.records, notes: b.notes || {} });
 }
 
 // 上傳這台裝置的資料到雲端
@@ -122,7 +124,8 @@ async function startSync(user) {
             // 雲端還沒有資料 → 把這台裝置的資料傳上去
             cloudRef = ref;
             await uploadNow();
-        } else if (localStorage.getItem("habits") === null && Object.keys(local.records).length === 0) {
+        } else if (localStorage.getItem("habits") === null && Object.keys(local.records).length === 0
+                && Object.keys(local.notes).length === 0) {
             // 這台裝置是全新的（還沒新增過習慣、也沒打過卡）→ 直接用雲端的，不用問
             cloudRef = ref;
             applyCloudData(snapshot.data());

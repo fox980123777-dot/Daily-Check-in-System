@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 22;
+const APP_VERSION = 23;
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -67,6 +67,46 @@ function loadRecords() {
 function saveRecords(records) {
     localStorage.setItem("records", JSON.stringify(records));
     uploadToCloud();
+}
+
+// ===== 每日筆記 =====
+// notes：某一天、某個項目寫的筆記，例如今天背了哪五個單字
+// 格式：{ "2026-11-12": { "h123": "apple, banana…" } }
+// 跟 records 分開存，打卡、日曆、統計、推播都不受影響
+function loadNotes() {
+    const saved = localStorage.getItem("notes");
+    if (saved === null) {
+        return {};
+    }
+    return JSON.parse(saved);
+}
+
+function saveNotes(notes) {
+    localStorage.setItem("notes", JSON.stringify(notes));
+    uploadToCloud();
+}
+
+// 拿某一天某個項目的筆記，沒寫過就是空字串
+function getNote(key, id) {
+    const day = loadNotes()[key];
+    return (day && day[id]) || "";
+}
+
+// 存某一天某個項目的筆記；清成空白就把它刪掉
+function setNote(key, id, text) {
+    const notes = loadNotes();
+    const day = notes[key] || {};
+    if (text === "") {
+        delete day[id];
+    } else {
+        day[id] = text;
+    }
+    if (Object.keys(day).length === 0) {
+        delete notes[key]; // 那天一則筆記都沒有，就把這天拿掉
+    } else {
+        notes[key] = day;
+    }
+    saveNotes(notes);
 }
 
 // 有登入的話，順便把資料傳到雲端（cloudSave 是 firebase.js 提供的，沒登入時不存在）
@@ -355,6 +395,24 @@ function makeRow(item, isDone) {
         button.appendChild(makeHabitText(item.name, note));
     }
 
+    // 今天有寫筆記的話，在小字下面多顯示一行筆記（太長會用 … 截掉）
+    const memo = getNote(toDateKey(new Date()), item.id);
+    if (memo !== "") {
+        const memoEl = document.createElement("span");
+        memoEl.className = "habit-memo";
+        memoEl.textContent = "📝 " + memo;
+        button.querySelector(".habit-text").appendChild(memoEl);
+    }
+
+    // 不能打卡的項目（還沒開始、已結束的短期目標）就不放筆記按鈕
+    const canNote = !button.disabled;
+    if (canNote) {
+        // 先留一塊空位，筆記按鈕會疊在這個位置上（按鈕裡面不能再放按鈕）
+        const space = document.createElement("span");
+        space.className = "note-space";
+        button.appendChild(space);
+    }
+
     // 右邊：完成 → 打勾圖示；沒完成 → 灰色圓點
     if (isDone) {
         button.appendChild(makeIcon("circle-check"));
@@ -373,7 +431,19 @@ function makeRow(item, isDone) {
     });
 
     const li = document.createElement("li");
+    li.className = "habit-row";
     li.appendChild(button);
+
+    if (canNote) {
+        const noteBtn = document.createElement("button");
+        noteBtn.className = "note-btn" + (memo !== "" ? " has-note" : "");
+        noteBtn.setAttribute("aria-label", "寫筆記");
+        noteBtn.appendChild(makeIcon("notebook-pen"));
+        noteBtn.addEventListener("click", function() {
+            openNoteDialog(item);
+        });
+        li.appendChild(noteBtn);
+    }
     return li;
 }
 
@@ -1462,6 +1532,31 @@ document.querySelectorAll(".seg-btn").forEach(function(btn) {
     });
 });
 
+// ===== 寫筆記的視窗 =====
+const noteDialog = document.getElementById("note-dialog");
+let noteItemId = null;   // 正在寫哪個項目的筆記
+let noteDateKey = null;  // 寫的是哪一天（打開視窗那一刻的今天，就算剛好跨過半夜也不會寫錯天）
+
+function openNoteDialog(item) {
+    noteItemId = item.id;
+    noteDateKey = toDateKey(new Date());
+    document.getElementById("note-title").textContent = item.name;
+    document.getElementById("note-date").textContent = slashDate(noteDateKey) + " 的筆記";
+    document.getElementById("note-input").value = getNote(noteDateKey, item.id);
+    noteDialog.showModal();
+}
+
+document.getElementById("note-form").addEventListener("submit", function(event) {
+    event.preventDefault();
+    setNote(noteDateKey, noteItemId, document.getElementById("note-input").value.trim());
+    noteDialog.close();
+    render();
+});
+
+document.getElementById("note-cancel").addEventListener("click", function() {
+    noteDialog.close();
+});
+
 document.getElementById("reset-btn").addEventListener("click", function() {
     if (confirm("確定要清除所有打卡紀錄嗎？（習慣清單會保留）")) {
         saveRecords({}); // 用 saveRecords 清空，雲端才會一起清掉
@@ -1474,7 +1569,8 @@ document.getElementById("export-btn").addEventListener("click", function() {
     // ① 把習慣和打卡紀錄打包成一個物件，再轉成文字（縮排 2 格比較好讀）
     const data = {
         habits: loadHabits(),
-        records: loadRecords()
+        records: loadRecords(),
+        notes: loadNotes()
     };
     const text = JSON.stringify(data, null, 2);
 
@@ -1530,9 +1626,12 @@ importFile.addEventListener("change", function() {
             return;
         }
 
-        if (confirm("匯入會覆蓋目前所有的習慣和打卡紀錄，確定要匯入嗎？")) {
+        if (confirm("匯入會覆蓋目前所有的習慣、打卡紀錄和筆記，確定要匯入嗎？")) {
             saveHabits(data.habits);
             saveRecords(data.records);
+            // 舊的備份檔沒有筆記，就清成空的
+            const notesOk = typeof data.notes === "object" && data.notes !== null && !Array.isArray(data.notes);
+            saveNotes(notesOk ? data.notes : {});
             render();
             alert("匯入完成！");
         }
