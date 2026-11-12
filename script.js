@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 20;
+const APP_VERSION = 21;
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -327,6 +327,15 @@ function makeBar(percent, extraClass) {
     return bar;
 }
 
+// 長期習慣開始到今天是第幾天，例如「第 12 天」（沒有建立日期的舊資料就不顯示）
+function habitDayText(habit) {
+    if (!habit.created) {
+        return "";
+    }
+    const today = fromDateKey(toDateKey(new Date()));
+    return "第 " + (daysBetween(fromDateKey(habit.created), today) + 1) + " 天";
+}
+
 // 做出一列可以點的項目（習慣、短期目標都用這個）
 function makeRow(item, isDone) {
     const button = document.createElement("button");
@@ -341,7 +350,9 @@ function makeRow(item, isDone) {
         button.appendChild(text);
         button.disabled = !info.active; // 還沒開始或已結束，就不能打卡
     } else {
-        button.appendChild(makeHabitText(item.name, item.note));
+        // 長期習慣：「說明 · 第 12 天」
+        const note = [item.note, habitDayText(item)].filter(function(t) { return t; }).join(" · ");
+        button.appendChild(makeHabitText(item.name, note));
     }
 
     // 右邊：完成 → 打勾圖示；沒完成 → 灰色圓點
@@ -536,6 +547,11 @@ function renderSettings() {
         row.appendChild(makeIcon(item.icon));
 
         let note = item.note;
+        if (isDailyHabit(item) && item.created) {
+            // 長期習慣：「說明 · 從 11/01 開始 · 第 12 天」
+            note = [item.note, "從 " + item.created.slice(5).replace("-", "/") + " 開始", habitDayText(item)]
+                .filter(function(t) { return t; }).join(" · ");
+        }
         if (isGoal(item)) {
             note = "短期目標 · " + item.start.slice(5).replace("-", "/") + " ~ " + item.end.slice(5).replace("-", "/");
             if (goalDaysText(item) !== "") {
@@ -1269,7 +1285,8 @@ function openAddDialog(type, item) {
     toggleIconMenu(false);
     document.getElementById("dialog-title").textContent = (isEdit ? "編輯" : "新增") + typeName;
     document.getElementById("submit-btn").textContent = isEdit ? "儲存" : "新增";
-    document.getElementById("date-fields").hidden = !hasDates;
+    document.getElementById("date-fields").hidden = false; // 長期習慣也要選開始日期
+    document.getElementById("end-field").hidden = !hasDates; // 只有短期目標、待辦事項有結束日期
     document.getElementById("end-label").textContent = (type === "todo") ? "期限" : "結束日期";
     document.getElementById("weekday-field").hidden = (type !== "goal"); // 只有短期目標可以選每週幾
 
@@ -1278,6 +1295,10 @@ function openAddDialog(type, item) {
         document.getElementById("input-name").value = item.name;
         document.getElementById("input-note").value = item.note || "";
         chooseIcon(OLD_ICON_NAMES[item.icon] || item.icon);
+        if (type === "habit") {
+            // 舊資料沒有建立日期的話，就先填今天
+            document.getElementById("input-start").value = item.created || toDateKey(new Date());
+        }
         if (hasDates) {
             document.getElementById("input-start").value = item.start;
             document.getElementById("input-end").value = item.end;
@@ -1321,6 +1342,20 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         created: toDateKey(new Date()) // 建立日期：今天
     };
 
+    if (addingType === "habit") {
+        // 長期習慣的開始日期就是 created（打卡、統計都從這天開始算）
+        const start = document.getElementById("input-start").value;
+        if (start === "") {
+            alert("請選擇開始日期");
+            return;
+        }
+        if (start > toDateKey(new Date())) {
+            alert("開始日期不能比今天晚");
+            return;
+        }
+        newItem.created = start;
+    }
+
     if (addingType === "goal" || addingType === "todo") {
         const start = document.getElementById("input-start").value;
         const end = document.getElementById("input-end").value;
@@ -1357,7 +1392,9 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         // 編輯：找到原本那一個，換掉內容（id 不變，所以以前的打卡紀錄都還在）
         const index = habits.findIndex(function(h) { return h.id === editingId; });
         newItem.id = editingId;
-        newItem.created = habits[index].created; // 建立日期也要保留，不然會變成今天
+        if (addingType !== "habit") {
+            newItem.created = habits[index].created; // 建立日期也要保留，不然會變成今天
+        }
         if (habits[index].done) {
             newItem.done = habits[index].done; // 待辦事項的完成日期也要保留
         }
