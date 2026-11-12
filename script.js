@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 30;
+const APP_VERSION = 31;
 
 // ===== 現在時間（測試用：可以假裝今天是別天） =====
 // 網址後面加 ?today=2026-11-13，整個 App 就會把那天當作「今天」，用來預覽明天、下個月的樣子
@@ -151,7 +151,7 @@ function addMemo(textBox, memo) {
     }
     const memoEl = document.createElement("span");
     memoEl.className = "habit-memo";
-    memoEl.textContent = "📝 " + memo;
+    memoEl.textContent = memo;
     textBox.appendChild(memoEl);
 }
 
