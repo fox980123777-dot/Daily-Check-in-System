@@ -20,9 +20,9 @@
     <!-- 所有圖示名稱可以到 https://lucide.dev/icons 查 -->
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
-    <!-- ?v=26 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
+    <!-- ?v=27 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
          記得 script.js 最上面的 APP_VERSION 也要改成一樣的數字（設定頁最下面會顯示） -->
-    <link rel="stylesheet" href="style.css?v=26">
+    <link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
 
@@ -250,7 +250,7 @@
         <form id="note-form">
             <h3 id="note-title">筆記</h3>
             <p class="note-date" id="note-date"></p>
-            <label class="field">今天做了什麼（清空再儲存 = 刪除筆記）
+            <label class="field">做了什麼（清空再儲存 = 刪除筆記）
                 <textarea id="note-input" rows="5" maxlength="1000" placeholder="例如：apple, banana, cherry"></textarea>
             </label>
             <div class="dialog-buttons">
@@ -297,8 +297,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=26"></script>
+<script src="script.js?v=27"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=26"></script>
+<script type="module" src="firebase.js?v=27"></script>
 </body>
 </html>

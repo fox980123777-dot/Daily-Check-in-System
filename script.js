@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 26;
+const APP_VERSION = 27;
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -109,16 +109,32 @@ function setNote(key, id, text) {
     saveNotes(notes);
 }
 
-// 在項目名稱和小字下面加一行筆記
-// full = true：整段顯示（日曆、打卡紀錄）；false：只顯示一行，太長用 …（今日頁）
-function addMemo(textBox, memo, full) {
+// 在項目名稱和小字下面加上整段筆記（日曆、打卡紀錄用）
+function addMemo(textBox, memo) {
     if (!memo) {
         return;
     }
     const memoEl = document.createElement("span");
-    memoEl.className = full ? "habit-memo full" : "habit-memo";
+    memoEl.className = "habit-memo";
     memoEl.textContent = "📝 " + memo;
     textBox.appendChild(memoEl);
+}
+
+// 做出筆記按鈕：按下去可以寫 / 改 dayKey 那天的筆記；那天寫過的話是主題色
+function makeNoteButton(item, dayKey) {
+    const btn = document.createElement("button");
+    btn.className = "note-btn" + (getNote(dayKey, item.id) !== "" ? " has-note" : "");
+    btn.setAttribute("aria-label", "寫筆記");
+    btn.appendChild(makeIcon("notebook-pen"));
+    btn.addEventListener("click", function() {
+        openNoteDialog(item, dayKey);
+    });
+    return btn;
+}
+
+// 查出某個代號的項目（含已刪除的）；舊版紀錄、查不到的就是 undefined
+function findAnyItem(id) {
+    return loadAllHabits().find(function(h) { return h.id === id; });
 }
 
 // 某一天有寫筆記、但上面列表還沒出現的項目（例如沒打勾但有寫筆記、待辦事項）
@@ -137,8 +153,11 @@ function appendNoteOnlyRows(list, dayKey, shownIds) {
         row.className = "setting-row";
         row.appendChild(makeIcon(info.icon));
         const text = makeHabitText(info.name, info.note);
-        addMemo(text, dayNotes[id], true);
+        addMemo(text, dayNotes[id]);
         row.appendChild(text);
+        if (item) {
+            row.appendChild(makeNoteButton(item, dayKey));
+        }
         list.appendChild(row);
     });
 }
@@ -429,8 +448,6 @@ function makeRow(item, isDone) {
         button.appendChild(makeHabitText(item.name, note));
     }
 
-    // 今天有沒有寫筆記：今日頁不顯示內容，只把右邊的筆記按鈕變成主題色
-    const memo = getNote(toDateKey(new Date()), item.id);
 
     // 不能打卡的項目（還沒開始、已結束的短期目標）就不放筆記按鈕
     const canNote = !button.disabled;
@@ -463,14 +480,7 @@ function makeRow(item, isDone) {
     li.appendChild(button);
 
     if (canNote) {
-        const noteBtn = document.createElement("button");
-        noteBtn.className = "note-btn" + (memo !== "" ? " has-note" : "");
-        noteBtn.setAttribute("aria-label", "寫筆記");
-        noteBtn.appendChild(makeIcon("notebook-pen"));
-        noteBtn.addEventListener("click", function() {
-            openNoteDialog(item);
-        });
-        li.appendChild(noteBtn);
+        li.appendChild(makeNoteButton(item, toDateKey(new Date())));
     }
     return li;
 }
@@ -628,8 +638,13 @@ function renderCalendar() {
             row.appendChild(makeIcon(gone.icon));
             text = makeHabitText(gone.name, gone.note);
         }
-        addMemo(text, dayNotes[id], true); // 那天有寫筆記就顯示
+        addMemo(text, dayNotes[id]); // 那天有寫筆記就顯示
         row.appendChild(text);
+        // 筆記按鈕：可以補寫或修改那天的筆記（舊版紀錄查不到項目就不放）
+        const target = findAnyItem(id);
+        if (target) {
+            row.appendChild(makeNoteButton(target, selectedDay));
+        }
         list.appendChild(row);
     });
     // 沒打勾、但有寫筆記的項目也列出來
@@ -1167,8 +1182,9 @@ function renderRecord() {
         row.className = "setting-row";
         row.appendChild(makeIcon(item.icon));
         const text = makeHabitText(item.name, isGoal(item) ? "短期目標" : item.note);
-        addMemo(text, dayNotes[item.id], true); // 那天有寫筆記就顯示
+        addMemo(text, dayNotes[item.id]); // 那天有寫筆記就顯示
         row.appendChild(text);
+        row.appendChild(makeNoteButton(item, recordDay)); // 可以補寫那天的筆記
         if (doneIds.includes(item.id)) {
             row.appendChild(makeIcon("circle-check"));
         } else {
@@ -1189,8 +1205,12 @@ function renderRecord() {
         const gone = goneItemText(id);
         row.appendChild(makeIcon(gone.icon));
         const text = makeHabitText(gone.name, gone.note);
-        addMemo(text, dayNotes[id], true);
+        addMemo(text, dayNotes[id]);
         row.appendChild(text);
+        const target = findAnyItem(id);
+        if (target) {
+            row.appendChild(makeNoteButton(target, recordDay));
+        }
         row.appendChild(makeIcon("circle-check"));
         list.appendChild(row);
     });
@@ -1595,9 +1615,10 @@ const noteDialog = document.getElementById("note-dialog");
 let noteItemId = null;   // 正在寫哪個項目的筆記
 let noteDateKey = null;  // 寫的是哪一天（打開視窗那一刻的今天，就算剛好跨過半夜也不會寫錯天）
 
-function openNoteDialog(item) {
+// dayKey：要寫哪一天的筆記；沒給就是今天（日曆、打卡紀錄可以補寫以前的）
+function openNoteDialog(item, dayKey) {
     noteItemId = item.id;
-    noteDateKey = toDateKey(new Date());
+    noteDateKey = dayKey || toDateKey(new Date());
     document.getElementById("note-title").textContent = item.name;
     document.getElementById("note-date").textContent = slashDate(noteDateKey) + " 的筆記";
     document.getElementById("note-input").value = getNote(noteDateKey, item.id);

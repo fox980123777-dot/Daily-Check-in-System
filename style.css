@@ -273,21 +273,21 @@ svg {
     color: var(--accent);
 }
 
-/* 項目小字下面的筆記預覽，只顯示一行，太長用 … */
+/* 日曆、打卡紀錄：項目小字下面整段顯示筆記，會自動換行（打 Enter 換的行也保留） */
 .habit-memo {
     display: block;
     margin-top: 4px;
     font-size: 12px;
     color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* 日曆、打卡紀錄：筆記整段顯示，會自動換行（打 Enter 換的行也保留） */
-.habit-memo.full {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+}
+
+/* 日曆、打卡紀錄裡的筆記按鈕：直接排在列裡面，不用疊上去 */
+.setting-row .note-btn {
+    position: static;
+    margin-top: 0;
+    flex-shrink: 0;
 }
 
 .note-date {
