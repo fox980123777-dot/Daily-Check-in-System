@@ -20,9 +20,9 @@
     <!-- 所有圖示名稱可以到 https://lucide.dev/icons 查 -->
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
-    <!-- ?v=21 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
+    <!-- ?v=22 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
          記得 script.js 最上面的 APP_VERSION 也要改成一樣的數字（設定頁最下面會顯示） -->
-    <link rel="stylesheet" href="style.css?v=21">
+    <link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 
@@ -47,7 +47,8 @@
                         <p class="progress-label">今日完成進度</p>
                         <p class="progress-count" id="progress-count">0 / 0</p>
                     </div>
-                    <div class="flame"><i data-lucide="flame"></i></div>
+                    <!-- 火焰動畫：muted + playsinline 是 iPhone 自動播放一定要的 -->
+                    <div class="flame"><video src="fire.mp4" autoplay muted loop playsinline aria-hidden="true"></video></div>
                 </div>
                 <div class="bar"><div class="bar-fill" id="bar-fill"></div></div>
                 <p class="streak" id="streak">已連續打卡 0 天</p>
@@ -267,8 +268,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=21"></script>
+<script src="script.js?v=22"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=21"></script>
+<script type="module" src="firebase.js?v=22"></script>
 </body>
 </html>

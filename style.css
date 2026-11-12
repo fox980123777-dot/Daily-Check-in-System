@@ -139,6 +139,15 @@ svg {
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden; /* 影片是正方形，切成圓形 */
+}
+
+/* 火焰影片填滿整個圓 */
+.flame video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none; /* 點了也不會跳出播放控制 */
 }
 
 .bar {
