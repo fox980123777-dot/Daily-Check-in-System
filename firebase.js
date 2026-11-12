@@ -2,8 +2,8 @@
 // 這個檔案是「模組」（index.html 裡用 type="module" 載入），所以可以用 import
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
-import { getMessaging, getToken, isSupported } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-messaging.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+import { getMessaging, getToken, deleteToken, isSupported } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-messaging.js";
 
 // 推播用的公開金鑰（VAPID），從 Firebase「專案設定 → Cloud Messaging」拿的，可以公開
 const VAPID_KEY = "BL-ipkuOkuvWa7ICwciDhWhdEEjoqWrTFIC8oZs15Df0FVxlgQ8PX_1c4yySToVJqFyAO0K-IqcxmNQv1mFAbn0";
@@ -177,6 +177,12 @@ function stopSync() {
 //      → 存到 Firestore 的 users/{uid}/tokens/{token}，後端就知道要推播給哪些裝置
 const pushInfo = document.getElementById("push-info");
 const pushBtn = document.getElementById("push-btn");
+const pushOffBtn = document.getElementById("push-off-btn");
+// 瀏覽器不能用程式收回「允許通知」，所以關閉推播時在這台裝置記一個 pushOff，
+// 下次打開 App 就不會自動把推播代號存回去（每台裝置分開記）
+function isPushOff() {
+    return localStorage.getItem("pushOff") === "1";
+}
 let currentUser = null;
 
 // 這個瀏覽器能不能收推播？（iPhone 要從「主畫面」打開才可以）
@@ -214,6 +220,7 @@ async function saveDeviceToken(user) {
 async function updatePushArea(user) {
     currentUser = user;
     pushBtn.hidden = true;
+    pushOffBtn.hidden = true;
 
     if (!user) {
         pushInfo.textContent = "請先登入，才能開啟推播通知";
@@ -227,8 +234,14 @@ async function updatePushArea(user) {
         pushInfo.textContent = "通知被封鎖了。請到手機的「設定 → 通知 → 每日打卡」打開";
         return;
     }
+    if (Notification.permission === "granted" && isPushOff()) {
+        pushInfo.textContent = "已關閉：這台裝置不會收到提醒";
+        pushBtn.hidden = false;
+        return;
+    }
     if (Notification.permission === "granted") {
         pushInfo.textContent = "已開啟：這台裝置會在早上 8 點、晚上 8 點收到提醒";
+        pushOffBtn.hidden = false;
         // 推播代號偶爾會更換，每次打開都重新存一次，確保是最新的
         saveDeviceToken(user).catch(function(error) {
             console.error("更新推播代號失敗", error);
@@ -251,6 +264,7 @@ pushBtn.addEventListener("click", async function() {
     }
     try {
         pushInfo.textContent = "設定中…";
+        localStorage.removeItem("pushOff"); // 重新開啟
         const registration = await saveDeviceToken(currentUser);
         // 馬上顯示一則通知，確認這台裝置真的可以顯示
         registration.showNotification("通知已開啟 🎉", {
@@ -260,6 +274,31 @@ pushBtn.addEventListener("click", async function() {
     } catch (error) {
         console.error(error);
         alert("開啟推播失敗：" + error.message);
+    }
+    updatePushArea(currentUser);
+});
+
+// 關閉推播：從 Firestore 刪掉這台裝置的推播代號，後端就不會再推播給它
+// 再請 Firebase 把這個代號作廢（就算 Firestore 沒刪成功，後端發送時也會失敗並自動清掉）
+pushOffBtn.addEventListener("click", async function() {
+    if (!currentUser || !confirm("確定要關閉這台裝置的推播通知嗎？（其他裝置不受影響）")) {
+        return;
+    }
+    pushInfo.textContent = "關閉中…";
+    localStorage.setItem("pushOff", "1");
+    try {
+        const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+        await navigator.serviceWorker.ready;
+        const messaging = getMessaging(app);
+        const token = await getToken(messaging, {
+            vapidKey: VAPID_KEY,
+            serviceWorkerRegistration: registration
+        });
+        await deleteDoc(doc(db, "users", currentUser.uid, "tokens", token));
+        await deleteToken(messaging);
+    } catch (error) {
+        console.error(error);
+        alert("關閉推播時發生問題：" + error.message);
     }
     updatePushArea(currentUser);
 });
