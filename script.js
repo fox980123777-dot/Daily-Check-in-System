@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 24;
+const APP_VERSION = 25;
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -639,14 +639,23 @@ function renderCalendar() {
 
 function renderSettings() {
     const habits = loadHabits();
-    const list = document.getElementById("manage-list");
-    list.innerHTML = "";
-
-    if (habits.length === 0) {
-        list.appendChild(makeEmpty("沒有任何項目"));
-    }
+    // 分成三類，跟今日頁一樣：長期習慣、短期進度、待辦事項
+    const lists = {
+        habit: document.getElementById("manage-habit-list"),
+        goal: document.getElementById("manage-goal-list"),
+        todo: document.getElementById("manage-todo-list")
+    };
+    const emptyText = { habit: "還沒有長期習慣", goal: "還沒有短期目標", todo: "沒有待辦事項" };
+    Object.keys(lists).forEach(function(type) {
+        lists[type].innerHTML = "";
+        const count = habits.filter(function(h) { return (h.type || "habit") === type; }).length;
+        if (count === 0) {
+            lists[type].appendChild(makeEmpty(emptyText[type]));
+        }
+    });
 
     habits.forEach(function(item) {
+        const list = lists[item.type || "habit"];
         const row = document.createElement("li");
         row.className = "setting-row";
         row.appendChild(makeIcon(item.icon));
@@ -658,15 +667,15 @@ function renderSettings() {
                 .filter(function(t) { return t; }).join(" · ");
         }
         if (isGoal(item)) {
-            note = "短期目標 · " + item.start.slice(5).replace("-", "/") + " ~ " + item.end.slice(5).replace("-", "/");
+            note = item.start.slice(5).replace("-", "/") + " ~ " + item.end.slice(5).replace("-", "/");
             if (goalDaysText(item) !== "") {
                 note = note + " · " + goalDaysText(item);
             }
         }
         if (isTodo(item)) {
             note = item.done
-                ? "待辦事項 · " + item.done.slice(5).replace("-", "/") + " 已完成"
-                : "待辦事項 · 期限 " + item.end.slice(5).replace("-", "/");
+                ? item.done.slice(5).replace("-", "/") + " 已完成"
+                : "期限 " + item.end.slice(5).replace("-", "/");
         }
         row.appendChild(makeHabitText(item.name, note));
 
@@ -1525,6 +1534,13 @@ document.getElementById("cancel-btn").addEventListener("click", function() {
 
 document.getElementById("add-habit-btn").addEventListener("click", function() {
     openAddDialog("habit");
+});
+
+// 設定頁每個分類右邊的 ⊕
+document.querySelectorAll("#page-settings [data-add]").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+        openAddDialog(btn.dataset.add);
+    });
 });
 
 document.getElementById("add-goal-btn").addEventListener("click", function() {

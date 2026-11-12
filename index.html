@@ -20,9 +20,9 @@
     <!-- 所有圖示名稱可以到 https://lucide.dev/icons 查 -->
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 
-    <!-- ?v=24 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
+    <!-- ?v=25 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
          記得 script.js 最上面的 APP_VERSION 也要改成一樣的數字（設定頁最下面會顯示） -->
-    <link rel="stylesheet" href="style.css?v=24">
+    <link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
 
@@ -144,10 +144,24 @@
 
         <!-- ===== 設定頁 ===== -->
         <section id="page-settings" hidden>
+            <!-- 管理項目：分類跟今日頁一樣，右邊的 ⊕ 也可以新增 -->
             <div class="section-head" style="margin-top: 16px">
-                <h2>管理習慣與短期目標</h2>
+                <h2>長期習慣</h2>
+                <button class="icon-btn" data-add="habit" aria-label="新增習慣"><i data-lucide="circle-plus"></i></button>
             </div>
-            <ul class="habit-list" id="manage-list"></ul>
+            <ul class="habit-list" id="manage-habit-list"></ul>
+
+            <div class="section-head">
+                <h2>短期進度</h2>
+                <button class="icon-btn" data-add="goal" aria-label="新增短期目標"><i data-lucide="circle-plus"></i></button>
+            </div>
+            <ul class="habit-list" id="manage-goal-list"></ul>
+
+            <div class="section-head">
+                <h2>待辦事項</h2>
+                <button class="icon-btn" data-add="todo" aria-label="新增待辦事項"><i data-lucide="circle-plus"></i></button>
+            </div>
+            <ul class="habit-list" id="manage-todo-list"></ul>
 
             <div class="section-head">
                 <h2>帳戶</h2>
@@ -283,8 +297,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=24"></script>
+<script src="script.js?v=25"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=24"></script>
+<script type="module" src="firebase.js?v=25"></script>
 </body>
 </html>
