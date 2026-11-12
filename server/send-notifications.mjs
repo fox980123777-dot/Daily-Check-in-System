@@ -3,9 +3,16 @@
 // 它用「服務帳戶金鑰」登入 Firebase，可以讀所有使用者的資料，所以金鑰一定要保密
 //
 // MODE（模式）：
-//   morning：早上 8 點，提醒今天、明天到期和已過期的待辦事項
-//   evening：晚上 8 點，今天還沒全部完成的話提醒
+//   auto：   定時執行用。看「現在台灣幾點」決定要不要發：
+//            早上 8:00～11:59 → 發早安提醒；晚上 8:00～11:59 → 發晚上提醒；其他時間什麼都不做
+//            同一天同一種提醒只發一次（發過的記在 Firestore 的 pushLog）
+//   morning：手動執行用，馬上發早安提醒（提醒今天、明天到期和已過期的待辦事項）
+//   evening：手動執行用，馬上發晚上提醒（今天還沒全部完成的話提醒）
 //   test：   馬上發一則測試推播給所有裝置
+//
+// 為什麼要 auto：GitHub 的定時排程常常延遲好幾個小時（曾經 8 點的排程拖到凌晨 3 點才跑），
+// 所以改成在提醒時段裡跑好幾次，第一次跑到的那次負責發，之後的看到「發過了」就跳過；
+// 太晚才跑到（過了時段）就不發，不會半夜收到錯天的提醒
 
 import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
@@ -24,8 +31,17 @@ const messaging = getMessaging();
 
 // ===== 日期小工具（一律用台灣時間） =====
 // GitHub 的電腦用的是世界標準時間，台灣快 8 小時
+function taiwanNow() {
+    return new Date(Date.now() + 8 * 60 * 60 * 1000); // 用 getUTC… 系列讀出來就是台灣的時間
+}
+
 function taiwanToday() {
-    return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10); // "2026-11-09"
+    return taiwanNow().toISOString().slice(0, 10); // "2026-11-09"
+}
+
+// 台灣現在幾點（0～23）
+function taiwanHour() {
+    return taiwanNow().getUTCHours();
 }
 
 function daysBetween(fromKey, toKey) {
@@ -93,6 +109,7 @@ function eveningMessage(habits, records, today) {
 async function sendToUser(userDoc, message) {
     const tokenDocs = (await userDoc.ref.collection("tokens").get()).docs;
     if (tokenDocs.length === 0) {
+        console.log("使用者 " + userDoc.id.slice(0, 6) + "…：沒有任何裝置開啟推播，跳過");
         return;
     }
 
@@ -118,7 +135,37 @@ async function sendToUser(userDoc, message) {
 
 // ===== 主程式 =====
 const today = taiwanToday();
-console.log("模式：" + MODE + "，台灣日期：" + today);
+const hour = taiwanHour();
+console.log("模式：" + MODE + "，台灣時間：" + today + " " + hour + " 點多");
+
+// auto：依照現在台灣幾點，決定這次要發哪一種
+let mode = MODE;
+if (MODE === "auto") {
+    if (hour >= 8 && hour < 12) {
+        mode = "morning";
+    } else if (hour >= 20) {
+        mode = "evening";
+    } else {
+        console.log("現在不是提醒時段（早上 8～12 點、晚上 8～12 點），這次不發");
+        process.exit(0);
+    }
+
+    // 今天這種提醒發過了嗎？用 create()：文件已經存在就會失敗，
+    // 就算兩次排程剛好同時在跑，也只有一次能建立成功，不會重複發
+    try {
+        await db.collection("pushLog").doc(today + "-" + mode).create({
+            mode: mode,
+            sentAt: new Date()
+        });
+    } catch (error) {
+        if (error.code === 6) { // 6 = ALREADY_EXISTS
+            console.log("今天的 " + mode + " 提醒已經發過了，這次跳過");
+            process.exit(0);
+        }
+        throw error;
+    }
+    console.log("今天第一次跑到 " + mode + " 時段，開始發送");
+}
 
 const users = await db.collection("users").get();
 for (const userDoc of users.docs) {
@@ -127,8 +174,8 @@ for (const userDoc of users.docs) {
     const records = data.records || {};
 
     let message = null;
-    if (MODE === "morning") message = morningMessage(habits, records, today);
-    else if (MODE === "evening") message = eveningMessage(habits, records, today);
+    if (mode === "morning") message = morningMessage(habits, records, today);
+    else if (mode === "evening") message = eveningMessage(habits, records, today);
     else message = { title: "測試推播 🎉", body: "後端推播成功！網頁關著也收得到了" };
 
     if (message) {

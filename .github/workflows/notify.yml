@@ -1,13 +1,16 @@
 # ===== GitHub Actions：每天定時執行 server/send-notifications.mjs =====
 # 時間用的是世界標準時間（UTC），台灣要 +8 小時
-# GitHub 很忙的時候可能會晚 10～30 分鐘才執行
+# GitHub 的排程常常延遲（整點最塞，曾經拖了好幾個小時），所以：
+#   ① 不排在整點，改排在 7、22、37、52 分
+#   ② 在提醒時段裡每 15 分鐘排一次，程式會看台灣現在幾點決定要不要發，
+#      而且同一天同一種提醒只發一次（見 send-notifications.mjs 的 auto 模式）
 
 name: 推播提醒
 
 on:
   schedule:
-    - cron: "0 0 * * *"    # UTC 00:00 = 台灣早上 8:00
-    - cron: "0 12 * * *"   # UTC 12:00 = 台灣晚上 8:00
+    - cron: "7,22,37,52 0-3 * * *"     # UTC 0～3 點 = 台灣早上 8:07～11:52
+    - cron: "7,22,37,52 12-15 * * *"   # UTC 12～15 點 = 台灣晚上 8:07～11:52
   workflow_dispatch:        # 可以在 GitHub 的 Actions 頁面手動按「Run workflow」
     inputs:
       mode:
@@ -19,6 +22,10 @@ on:
           - test
           - morning
           - evening
+
+# 同一時間只跑一個，前一個還沒跑完，下一個就排隊等
+concurrency:
+  group: notify
 
 jobs:
   send:
@@ -40,5 +47,5 @@ jobs:
         env:
           # 金鑰從 GitHub Secrets 拿，不會出現在程式碼裡
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          # 手動執行：用選的模式；定時執行：早上的排程是 morning，晚上的是 evening
-          MODE: ${{ github.event.inputs.mode || (github.event.schedule == '0 0 * * *' && 'morning' || 'evening') }}
+          # 手動執行：用選的模式（馬上發）；定時執行：auto（程式自己看台灣幾點決定）
+          MODE: ${{ github.event.inputs.mode || 'auto' }}
