@@ -284,6 +284,12 @@ svg {
     text-overflow: ellipsis;
 }
 
+/* 日曆、打卡紀錄：筆記整段顯示，會自動換行（打 Enter 換的行也保留） */
+.habit-memo.full {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 .note-date {
     margin: -10px 0 14px;
     font-size: 13px;

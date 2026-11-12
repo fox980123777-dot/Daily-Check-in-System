@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 23;
+const APP_VERSION = 24;
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -107,6 +107,40 @@ function setNote(key, id, text) {
         notes[key] = day;
     }
     saveNotes(notes);
+}
+
+// 在項目名稱和小字下面加一行筆記
+// full = true：整段顯示（日曆、打卡紀錄）；false：只顯示一行，太長用 …（今日頁）
+function addMemo(textBox, memo, full) {
+    if (!memo) {
+        return;
+    }
+    const memoEl = document.createElement("span");
+    memoEl.className = full ? "habit-memo full" : "habit-memo";
+    memoEl.textContent = "📝 " + memo;
+    textBox.appendChild(memoEl);
+}
+
+// 某一天有寫筆記、但上面列表還沒出現的項目（例如沒打勾但有寫筆記、待辦事項）
+// shownIds：已經列出來的項目代號
+function appendNoteOnlyRows(list, dayKey, shownIds) {
+    const dayNotes = loadNotes()[dayKey] || {};
+    Object.keys(dayNotes).forEach(function(id) {
+        if (shownIds.includes(id)) {
+            return;
+        }
+        const item = loadAllHabits().find(function(h) { return h.id === id; });
+        const info = item
+            ? { name: item.name, note: item.deleted ? "已刪除" : "沒有打勾", icon: item.icon }
+            : goneItemText(id);
+        const row = document.createElement("li");
+        row.className = "setting-row";
+        row.appendChild(makeIcon(info.icon));
+        const text = makeHabitText(info.name, info.note);
+        addMemo(text, dayNotes[id], true);
+        row.appendChild(text);
+        list.appendChild(row);
+    });
 }
 
 // 有登入的話，順便把資料傳到雲端（cloudSave 是 firebase.js 提供的，沒登入時不存在）
@@ -397,12 +431,7 @@ function makeRow(item, isDone) {
 
     // 今天有寫筆記的話，在小字下面多顯示一行筆記（太長會用 … 截掉）
     const memo = getNote(toDateKey(new Date()), item.id);
-    if (memo !== "") {
-        const memoEl = document.createElement("span");
-        memoEl.className = "habit-memo";
-        memoEl.textContent = "📝 " + memo;
-        button.querySelector(".habit-text").appendChild(memoEl);
-    }
+    addMemo(button.querySelector(".habit-text"), memo, false);
 
     // 不能打卡的項目（還沒開始、已結束的短期目標）就不放筆記按鈕
     const canNote = !button.disabled;
@@ -581,25 +610,31 @@ function renderCalendar() {
     const list = document.getElementById("day-list");
     list.innerHTML = "";
     const doneIds = records[selectedDay] || [];
+    const dayNotes = loadNotes()[selectedDay] || {};
 
-    if (doneIds.length === 0) {
+    if (doneIds.length === 0 && Object.keys(dayNotes).length === 0) {
         list.appendChild(makeEmpty("這天沒有打卡"));
     }
     doneIds.forEach(function(id) {
         const item = habits.find(function(h) { return h.id === id; });
         const row = document.createElement("li");
         row.className = "setting-row";
+        let text;
         if (item) {
             row.appendChild(makeIcon(item.icon));
-            row.appendChild(makeHabitText(item.name, isGoal(item) ? "短期目標" : item.note));
+            text = makeHabitText(item.name, isGoal(item) ? "短期目標" : item.note);
         } else {
             // 舊版的打卡，或已經被刪掉的習慣
             const gone = goneItemText(id);
             row.appendChild(makeIcon(gone.icon));
-            row.appendChild(makeHabitText(gone.name, gone.note));
+            text = makeHabitText(gone.name, gone.note);
         }
+        addMemo(text, dayNotes[id], true); // 那天有寫筆記就顯示
+        row.appendChild(text);
         list.appendChild(row);
     });
+    // 沒打勾、但有寫筆記的項目也列出來
+    appendNoteOnlyRows(list, selectedDay, doneIds);
 }
 
 function renderSettings() {
@@ -1113,7 +1148,8 @@ function renderRecord() {
     const list = document.getElementById("record-list");
     list.innerHTML = "";
 
-    if (items.length === 0 && doneIds.length === 0) {
+    const dayNotes = loadNotes()[recordDay] || {};
+    if (items.length === 0 && doneIds.length === 0 && Object.keys(dayNotes).length === 0) {
         list.appendChild(makeEmpty("這天還沒有任何習慣"));
     }
 
@@ -1122,7 +1158,9 @@ function renderRecord() {
         const row = document.createElement("li");
         row.className = "setting-row";
         row.appendChild(makeIcon(item.icon));
-        row.appendChild(makeHabitText(item.name, isGoal(item) ? "短期目標" : item.note));
+        const text = makeHabitText(item.name, isGoal(item) ? "短期目標" : item.note);
+        addMemo(text, dayNotes[item.id], true); // 那天有寫筆記就顯示
+        row.appendChild(text);
         if (doneIds.includes(item.id)) {
             row.appendChild(makeIcon("circle-check"));
         } else {
@@ -1142,10 +1180,15 @@ function renderRecord() {
         row.className = "setting-row";
         const gone = goneItemText(id);
         row.appendChild(makeIcon(gone.icon));
-        row.appendChild(makeHabitText(gone.name, gone.note));
+        const text = makeHabitText(gone.name, gone.note);
+        addMemo(text, dayNotes[id], true);
+        row.appendChild(text);
         row.appendChild(makeIcon("circle-check"));
         list.appendChild(row);
     });
+
+    // 上面都沒列到、但那天有寫筆記的（例如待辦事項）
+    appendNoteOnlyRows(list, recordDay, items.map(function(h) { return h.id; }).concat(doneIds));
 
     drawIcons();
 }
