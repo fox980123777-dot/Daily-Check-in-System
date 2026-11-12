@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 25;
+const APP_VERSION = 26;
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -429,9 +429,8 @@ function makeRow(item, isDone) {
         button.appendChild(makeHabitText(item.name, note));
     }
 
-    // 今天有寫筆記的話，在小字下面多顯示一行筆記（太長會用 … 截掉）
+    // 今天有沒有寫筆記：今日頁不顯示內容，只把右邊的筆記按鈕變成主題色
     const memo = getNote(toDateKey(new Date()), item.id);
-    addMemo(button.querySelector(".habit-text"), memo, false);
 
     // 不能打卡的項目（還沒開始、已結束的短期目標）就不放筆記按鈕
     const canNote = !button.disabled;
