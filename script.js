@@ -1,6 +1,41 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 29;
+const APP_VERSION = 30;
+
+// ===== 現在時間（測試用：可以假裝今天是別天） =====
+// 網址後面加 ?today=2026-11-13，整個 App 就會把那天當作「今天」，用來預覽明天、下個月的樣子
+// 只改日期，幾點幾分還是真的時間；沒加就是平常的今天
+// 程式裡要知道「現在」一律用 now()，不要直接寫 new Date()，這樣測試時只要改這一個地方
+const FAKE_TODAY = (function() {
+    const value = new URLSearchParams(location.search).get("today");
+    if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return null;
+    }
+    // 檢查是不是真的有這一天（例如 2026-02-30 就不行）
+    const parts = value.split("-").map(Number);
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
+    return date.getMonth() === parts[1] - 1 && date.getDate() === parts[2] ? value : null;
+})();
+
+function now() {
+    const real = new Date();
+    if (FAKE_TODAY === null) {
+        return real;
+    }
+    const parts = FAKE_TODAY.split("-").map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2],
+        real.getHours(), real.getMinutes(), real.getSeconds(), real.getMilliseconds());
+}
+
+// 測試模式：最上面顯示提醒，免得忘記自己在測試
+if (FAKE_TODAY !== null) {
+    document.addEventListener("DOMContentLoaded", function() {
+        const banner = document.createElement("div");
+        banner.className = "test-banner";
+        banner.textContent = "測試模式：把今天當作 " + FAKE_TODAY + "（打卡、筆記會真的存下來）";
+        document.body.prepend(banner);
+    });
+}
 
 // ===== 第一次使用時的預設習慣 =====
 // id：電腦用來分辨習慣的代號；icon：Lucide 圖示的名字（https://lucide.dev/icons）
@@ -216,7 +251,7 @@ function hasCheckin(records, date) {
 
 // 計算連續打卡天數
 function countStreak(records) {
-    const day = new Date();
+    const day = now();
 
     // 今天還沒打卡的話，從昨天開始往回算（今天還有機會打，連續紀錄不算斷）
     if (!hasCheckin(records, day)) {
@@ -266,13 +301,13 @@ function isDailyHabit(item) {
 
 // 今日頁要不要顯示：還沒完成，或是今天才完成的（今天還可以取消打勾）
 function isTodoVisible(todo) {
-    return !todo.done || todo.done === toDateKey(new Date());
+    return !todo.done || todo.done === toDateKey(now());
 }
 
 // 算出待辦事項的時間進度，格式跟 goalInfo 一樣
 function todoInfo(todo) {
     const info = goalInfo(todo);
-    const today = fromDateKey(toDateKey(new Date()));
+    const today = fromDateKey(toDateKey(now()));
     const late = daysBetween(fromDateKey(todo.end), today); // 超過期限幾天
 
     if (late > 0) {
@@ -289,7 +324,7 @@ function todoInfo(todo) {
 function toggleTodo(id) {
     const habits = loadHabits();
     const todo = habits.find(function(h) { return h.id === id; });
-    const today = toDateKey(new Date());
+    const today = toDateKey(now());
 
     if (todo.done === today) {
         delete todo.done; // 今天按錯了，可以反悔
@@ -304,7 +339,7 @@ function toggleTodo(id) {
 // 算出短期目標的時間進度
 // 回傳：active（今天在期間內嗎）、percent（進度條要多長）、text（顯示的文字）
 function goalInfo(goal) {
-    const today = fromDateKey(toDateKey(new Date()));
+    const today = fromDateKey(toDateKey(now()));
     const start = fromDateKey(goal.start);
     const end = fromDateKey(goal.end);
     const total = daysBetween(start, end) + 1; // 頭尾都算，所以 +1
@@ -326,7 +361,7 @@ function goalInfo(goal) {
     if (daysText !== "") {
         text = daysText + " · " + text;
     }
-    if (!isGoalDay(goal, toDateKey(new Date()))) {
+    if (!isGoalDay(goal, toDateKey(now()))) {
         return { active: false, percent: dayNumber / total * 100, text: "今天休息 · " + text };
     }
     return { active: true, percent: dayNumber / total * 100, text: text };
@@ -425,7 +460,7 @@ function habitDayText(habit) {
     if (!habit.created) {
         return "";
     }
-    const today = fromDateKey(toDateKey(new Date()));
+    const today = fromDateKey(toDateKey(now()));
     return "第 " + (daysBetween(fromDateKey(habit.created), today) + 1) + " 天";
 }
 
@@ -480,7 +515,7 @@ function makeRow(item, isDone) {
     li.appendChild(button);
 
     if (canNote) {
-        li.appendChild(makeNoteButton(item, toDateKey(new Date())));
+        li.appendChild(makeNoteButton(item, toDateKey(now())));
     }
     return li;
 }
@@ -495,16 +530,16 @@ function makeEmpty(text) {
 // ===== 畫出每一頁 =====
 
 function renderToday() {
-    const now = new Date();
+    const current = now();
     const habits = loadHabits();
     const records = loadRecords();
-    const doneToday = records[toDateKey(now)] || [];
+    const doneToday = records[toDateKey(current)] || [];
 
     const dailyHabits = habits.filter(isDailyHabit);
     const goals = habits.filter(isGoal);
     const todos = habits.filter(function(h) { return isTodo(h) && isTodoVisible(h); });
 
-    document.getElementById("date").textContent = formatDate(now);
+    document.getElementById("date").textContent = formatDate(current);
 
     // 今日進度：每天的習慣 + 今天在期間內的短期目標
     const todayItems = dailyHabits.concat(goals.filter(function(g) {
@@ -555,16 +590,16 @@ function renderToday() {
 }
 
 // 日曆現在顯示哪個月、點選了哪一天
-const calendarMonth = new Date();
+const calendarMonth = now();
 calendarMonth.setDate(1);
-let selectedDay = toDateKey(new Date());
+let selectedDay = toDateKey(now());
 
 function renderCalendar() {
     const records = loadRecords();
     const habits = loadHabits();
     const year = calendarMonth.getFullYear();
     const month = calendarMonth.getMonth();
-    const todayKey = toDateKey(new Date());
+    const todayKey = toDateKey(now());
 
     document.getElementById("cal-title").textContent = year + " 年 " + (month + 1) + " 月";
 
@@ -737,7 +772,7 @@ function slashDate(key) {
 
 // 算出一個習慣從開始到現在的紀錄
 function habitHistory(habit, records) {
-    const today = fromDateKey(toDateKey(new Date()));
+    const today = fromDateKey(toDateKey(now()));
 
     // 某一天有沒有做這個習慣
     function doneOn(date) {
@@ -831,7 +866,7 @@ function renderHistory(habits, records) {
 
 // 本週（星期一 ~ 星期日）或本月（1 號 ~ 月底）的每一天
 function getStatsDays(range) {
-    const today = new Date();
+    const today = now();
     const year = today.getFullYear();
     const month = today.getMonth();
     const days = [];
@@ -886,7 +921,7 @@ function makeChartColumn(label, percent, isToday, isFuture) {
 function renderStats() {
     const habits = loadHabits();
     const records = loadRecords();
-    const todayKey = toDateKey(new Date());
+    const todayKey = toDateKey(now());
     const days = getStatsDays(statsRange);
 
     // 上方的日期範圍
@@ -1017,8 +1052,8 @@ function loadReadNotices() {
 function getNotices() {
     const habits = loadHabits();
     const records = loadRecords();
-    const now = new Date();
-    const todayKey = toDateKey(now);
+    const current = now();
+    const todayKey = toDateKey(current);
     const today = fromDateKey(todayKey);
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
@@ -1064,7 +1099,7 @@ function getNotices() {
 
     // 晚上 8 點以後，今天還沒全部完成
     const todayItems = habits.filter(function(h) { return isActiveOn(h, todayKey); });
-    if (now.getHours() >= 20 && todayItems.length > 0 && !hasCheckin(records, today)) {
+    if (current.getHours() >= 20 && todayItems.length > 0 && !hasCheckin(records, today)) {
         const doneIds = records[todayKey] || [];
         const left = todayItems.filter(function(h) { return !doneIds.includes(h.id); }).length;
         notices.push({ id: "evening-" + todayKey, icon: "moon",
@@ -1135,7 +1170,7 @@ let recordDay = ""; // 正在看哪一天，例如 "2026-11-08"
 
 // 「昨天」「前天」或「3 天前」
 function daysAgoText(key) {
-    const ago = daysBetween(fromDateKey(key), fromDateKey(toDateKey(new Date())));
+    const ago = daysBetween(fromDateKey(key), fromDateKey(toDateKey(now())));
     if (ago === 0) return "今天";
     if (ago === 1) return "昨天";
     if (ago === 2) return "前天";
@@ -1145,7 +1180,7 @@ function daysAgoText(key) {
 function renderRecord() {
     const records = loadRecords();
     const habits = loadHabits();
-    const todayKey = toDateKey(new Date());
+    const todayKey = toDateKey(now());
     const doneIds = records[recordDay] || [];
 
     document.getElementById("record-title").textContent = daysAgoText(recordDay);
@@ -1231,7 +1266,7 @@ function moveRecordDay(step) {
 
 // 按左上角選單 → 打開視窗，先顯示昨天
 document.getElementById("menu-btn").addEventListener("click", function() {
-    const yesterday = new Date();
+    const yesterday = now();
     yesterday.setDate(yesterday.getDate() - 1);
     recordDay = toDateKey(yesterday);
     renderRecord();
@@ -1249,7 +1284,7 @@ document.getElementById("record-next").addEventListener("click", function() {
 // 用日期選擇器直接跳到某一天
 document.getElementById("record-pick").addEventListener("change", function(event) {
     const key = event.target.value;
-    if (key && key <= toDateKey(new Date())) {
+    if (key && key <= toDateKey(now())) {
         recordDay = key;
         renderRecord();
     }
@@ -1272,7 +1307,7 @@ function drawIcons() {
 // 點一下：沒完成 → 完成；已完成 → 取消（按錯可以反悔）
 function toggleHabit(id) {
     const records = loadRecords();
-    const today = toDateKey(new Date());
+    const today = toDateKey(now());
     const doneToday = records[today] || [];
 
     if (doneToday.includes(id)) {
@@ -1297,7 +1332,7 @@ function deleteHabit(item) {
     // 不真的刪掉，標上刪除日期就好（其他畫面用 loadHabits 就看不到它了）
     const habits = loadAllHabits().map(function(h) {
         if (h.id === item.id) {
-            return Object.assign({}, h, { deleted: toDateKey(new Date()) });
+            return Object.assign({}, h, { deleted: toDateKey(now()) });
         }
         return h;
     });
@@ -1438,7 +1473,7 @@ function openAddDialog(type, item) {
         chooseIcon(OLD_ICON_NAMES[item.icon] || item.icon);
         if (type === "habit") {
             // 舊資料沒有建立日期的話，就先填今天
-            document.getElementById("input-start").value = item.created || toDateKey(new Date());
+            document.getElementById("input-start").value = item.created || toDateKey(now());
         }
         if (hasDates) {
             document.getElementById("input-start").value = item.start;
@@ -1455,8 +1490,8 @@ function openAddDialog(type, item) {
         chooseIcon({ habit: "star", goal: "target", todo: "list-todo" }[type]);
 
         // 預設今天開始：短期目標 21 天、待辦事項 7 天
-        const start = new Date();
-        const end = new Date();
+        const start = now();
+        const end = now();
         end.setDate(end.getDate() + (type === "todo" ? 6 : 20));
         document.getElementById("input-start").value = toDateKey(start);
         document.getElementById("input-end").value = toDateKey(end);
@@ -1480,7 +1515,7 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         name: name,
         note: note,
         icon: selectedIcon, // 下拉選單選的圖示
-        created: toDateKey(new Date()) // 建立日期：今天
+        created: toDateKey(now()) // 建立日期：今天
     };
 
     if (addingType === "habit") {
@@ -1490,7 +1525,7 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
             alert("請選擇開始日期");
             return;
         }
-        if (start > toDateKey(new Date())) {
+        if (start > toDateKey(now())) {
             alert("開始日期不能比今天晚");
             return;
         }
@@ -1618,7 +1653,7 @@ let noteDateKey = null;  // 寫的是哪一天（打開視窗那一刻的今天�
 // dayKey：要寫哪一天的筆記；沒給就是今天（日曆、打卡紀錄可以補寫以前的）
 function openNoteDialog(item, dayKey) {
     noteItemId = item.id;
-    noteDateKey = dayKey || toDateKey(new Date());
+    noteDateKey = dayKey || toDateKey(now());
     document.getElementById("note-title").textContent = item.name;
     document.getElementById("note-date").textContent = slashDate(noteDateKey) + " 的筆記";
     document.getElementById("note-input").value = getNote(noteDateKey, item.id);
@@ -1660,7 +1695,7 @@ document.getElementById("export-btn").addEventListener("click", function() {
     // ③ 做一個看不見的下載連結，假裝點它一下
     const a = document.createElement("a");
     a.href = url;
-    a.download = "打卡備份-" + toDateKey(new Date()) + ".json";
+    a.download = "打卡備份-" + toDateKey(now()) + ".json";
     document.body.appendChild(a); // 有些手機瀏覽器要放進網頁裡才能點
     a.click();
     a.remove();
@@ -1743,7 +1778,7 @@ function fillCreatedDates() {
         const firstDay = days.find(function(key) {
             return records[key].includes(habit.id);
         });
-        habit.created = firstDay || toDateKey(new Date());
+        habit.created = firstDay || toDateKey(now());
         changed = true;
     });
 

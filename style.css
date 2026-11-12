@@ -889,3 +889,15 @@ dialog h3 {
     font-size: 12px;
     color: var(--muted);
 }
+
+/* 測試模式（網址有 ?today=）最上面的提醒條 */
+.test-banner {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: 8px 16px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    text-align: center;
+}
