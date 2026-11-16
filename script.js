@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 34;
+const APP_VERSION = 35;
 
 // ===== 現在時間（測試用：可以假裝今天是別天） =====
 // 網址後面加 ?today=2026-11-13，整個 App 就會把那天當作「今天」，用來預覽明天、下個月的樣子
@@ -240,8 +240,8 @@ function hasCheckin(records, date) {
         return true;
     }
 
-    // 那天需要做的項目（習慣 + 期間內的短期目標）
-    const items = loadHabits().filter(function(h) { return isActiveOn(h, key); });
+    // 那天需要做、而且算入連續打卡的項目（習慣 + 期間內的短期目標）
+    const items = loadHabits().filter(function(h) { return isActiveOn(h, key) && countsForStreak(h); });
     if (items.length === 0) {
         return false;
     }
@@ -249,10 +249,15 @@ function hasCheckin(records, date) {
     return items.every(function(h) { return doneIds.includes(h.id); });
 }
 
-// 那一天有沒有需要做的項目
+// 這個項目要不要算進「連續打卡」（設定裡關掉的話是 inStreak: false；舊資料沒有這個欄位 = 要算）
+function countsForStreak(item) {
+    return item.inStreak !== false;
+}
+
+// 那一天有沒有需要做、而且算入連續打卡的項目
 function hasItemsOn(date) {
     const key = toDateKey(date);
-    return loadHabits().some(function(h) { return isActiveOn(h, key); });
+    return loadHabits().some(function(h) { return isActiveOn(h, key) && countsForStreak(h); });
 }
 
 // 計算連續打卡天數
@@ -996,7 +1001,7 @@ function renderStats() {
                 checkinDays = checkinDays + 1;
                 run = run + 1;
                 bestRun = Math.max(bestRun, run);
-            } else if (key !== todayKey && items.length > 0) {
+            } else if (key !== todayKey && items.some(countsForStreak)) {
                 run = 0; // 中斷了，重新數（今天還沒完成、那天沒有要做的項目，都不算中斷）
             }
         }
@@ -1501,7 +1506,7 @@ function openAddDialog(type, item) {
     document.getElementById("end-field").hidden = !hasDates; // 只有短期目標、待辦事項有結束日期
     document.getElementById("end-label").textContent = (type === "todo") ? "期限" : "結束日期";
     document.getElementById("weekday-field").hidden = (type === "todo"); // 長期習慣、短期目標可以選每週幾
-
+    document.getElementById("streak-field").hidden = (type === "todo"); // 待辦事項本來就不算連續打卡
     if (isEdit) {
         // 編輯：把原本的內容填進去
         document.getElementById("input-name").value = item.name;
@@ -1516,6 +1521,7 @@ function openAddDialog(type, item) {
             dayChecks().forEach(function(box) {
                 box.checked = !item.days || item.days.includes(Number(box.value));
             });
+            document.getElementById("input-streak").checked = countsForStreak(item);
         }
     } else {
         // 新增：用預設值
@@ -1576,6 +1582,9 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
             return;
         }
         newItem.days = days;
+        if (!document.getElementById("input-streak").checked) {
+            newItem.inStreak = false; // 只有關掉才記下來；沒有這個欄位 = 算入連續打卡
+        }
     }
 
     const habits = loadHabits();
@@ -1636,7 +1645,7 @@ document.getElementById("next-month").addEventListener("click", function() {
 });
 
 // ===== 底部選單：切換頁面 =====
-const PAGE_TITLES = { today: "今日", calendar: "日曆", stats: "統計", settings: "設定" };
+const PAGE_TITLES = { home: "首頁", today: "今日", calendar: "日曆", stats: "統計", settings: "設定" };
 
 document.querySelectorAll(".tab").forEach(function(tab) {
     tab.addEventListener("click", function() {
