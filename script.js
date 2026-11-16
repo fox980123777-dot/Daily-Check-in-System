@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 31;
+const APP_VERSION = 34;
 
 // ===== 現在時間（測試用：可以假裝今天是別天） =====
 // 網址後面加 ?today=2026-11-13，整個 App 就會把那天當作「今天」，用來預覽明天、下個月的樣子
@@ -249,6 +249,12 @@ function hasCheckin(records, date) {
     return items.every(function(h) { return doneIds.includes(h.id); });
 }
 
+// 那一天有沒有需要做的項目
+function hasItemsOn(date) {
+    const key = toDateKey(date);
+    return loadHabits().some(function(h) { return isActiveOn(h, key); });
+}
+
 // 計算連續打卡天數
 function countStreak(records) {
     const day = now();
@@ -258,9 +264,19 @@ function countStreak(records) {
         day.setDate(day.getDate() - 1);
     }
 
+    // 那天完全沒有要做的項目（例如習慣只選了一、三，今天是二）→ 跳過，不算斷
+    // 連續空白超過 7 天就停（再往前就是還沒開始用的日子了）
     let count = 0;
-    while (hasCheckin(records, day)) {
-        count = count + 1;
+    let emptyRun = 0;
+    while (emptyRun <= 7) {
+        if (hasCheckin(records, day)) {
+            count = count + 1;
+            emptyRun = 0;
+        } else if (hasItemsOn(day)) {
+            break; // 有要做的項目卻沒全部完成，連續就斷了
+        } else {
+            emptyRun = emptyRun + 1;
+        }
         day.setDate(day.getDate() - 1);
     }
     return count;
@@ -272,7 +288,7 @@ function isGoal(item) {
     return item.type === "goal";
 }
 
-// 短期目標可以只在每週某幾天做：days 是星期的數字（0 = 日、1 = 一 … 6 = 六）
+// 長期習慣和短期目標都可以只在每週某幾天做：days 是星期的數字（0 = 日、1 = 一 … 6 = 六）
 // 舊資料沒有 days，就當作每天都要做
 function isGoalDay(goal, key) {
     return !goal.days || goal.days.includes(fromDateKey(key).getDay());
@@ -478,9 +494,12 @@ function makeRow(item, isDone) {
         button.appendChild(text);
         button.disabled = !info.active; // 還沒開始或已結束，就不能打卡
     } else {
-        // 長期習慣：「說明 · 第 12 天」
-        const note = [item.note, habitDayText(item)].filter(function(t) { return t; }).join(" · ");
+        // 長期習慣：「說明 · 每週一、三 · 從 11/01 開始 · 第 12 天」
+        const startText = item.created ? "從 " + item.created.slice(5).replace("-", "/") + " 開始" : "";
+        const note = [item.note, goalDaysText(item), startText, habitDayText(item)]
+            .filter(function(t) { return t; }).join(" · ");
         button.appendChild(makeHabitText(item.name, note));
+        button.disabled = !isGoalDay(item, toDateKey(now())); // 今天不是要做的星期幾，就不能打卡
     }
 
 
@@ -541,8 +560,11 @@ function renderToday() {
 
     document.getElementById("date").textContent = formatDate(current);
 
-    // 今日進度：每天的習慣 + 今天在期間內的短期目標
-    const todayItems = dailyHabits.concat(goals.filter(function(g) {
+    // 今日進度：今天要做的習慣（有選今天這個星期幾）+ 今天在期間內的短期目標
+    const todayKey = toDateKey(current);
+    const todayItems = dailyHabits.filter(function(h) {
+        return isActiveOn(h, todayKey);
+    }).concat(goals.filter(function(g) {
         return goalInfo(g).active;
     }));
     const doneCount = todayItems.filter(function(h) {
@@ -711,8 +733,8 @@ function renderSettings() {
 
         let note = item.note;
         if (isDailyHabit(item) && item.created) {
-            // 長期習慣：「說明 · 從 11/01 開始 · 第 12 天」
-            note = [item.note, "從 " + item.created.slice(5).replace("-", "/") + " 開始", habitDayText(item)]
+            // 長期習慣：「說明 · 每週一、三 · 從 11/01 開始 · 第 12 天」
+            note = [item.note, goalDaysText(item), "從 " + item.created.slice(5).replace("-", "/") + " 開始", habitDayText(item)]
                 .filter(function(t) { return t; }).join(" · ");
         }
         if (isGoal(item)) {
@@ -757,8 +779,8 @@ function isActiveOn(item, key) {
         return false; // 待辦事項不算進打卡和統計
     }
     if (!isGoal(item)) {
-        // 建立之前的日子不用做（沒有 created 的話就當作一直都有）
-        return !item.created || key >= item.created;
+        // 建立之前的日子不用做（沒有 created 的話就當作一直都有）；也要是有選的星期幾
+        return (!item.created || key >= item.created) && isGoalDay(item, key);
     }
     // 日期文字可以直接比大小；還要是有選的星期幾
     return key >= item.start && key <= item.end && isGoalDay(item, key);
@@ -790,24 +812,37 @@ function habitHistory(habit, records) {
         }
     });
 
+    // 那一天要不要做（沒選的星期幾就跳過，不會讓連續中斷，也不算停滯）
+    function isHabitDay(date) {
+        return isGoalDay(habit, toDateKey(date));
+    }
+
     // 目前連續：跟首頁的連續天數一樣，今天還沒做就從昨天開始往回數
+    // 只數「要做的那幾天」，例如每週一、三，就是連續幾次一和三都有做
     let streak = 0;
     const day = new Date(today);
     if (!doneOn(day)) {
         day.setDate(day.getDate() - 1);
     }
-    while (doneOn(day)) {
-        streak = streak + 1;
+    while (!habit.created || toDateKey(day) >= habit.created) {
+        if (doneOn(day)) {
+            streak = streak + 1;
+        } else if (isHabitDay(day)) {
+            break; // 要做的那天沒做，連續就斷了
+        }
         day.setDate(day.getDate() - 1);
     }
 
     // 停滯：今天還沒做的話，從昨天往回數「連續幾天沒做」（不算開始之前的日子）
+    // 只算要做的那幾天
     let stalled = 0;
     if (!doneOn(today)) {
         const d = new Date(today);
         d.setDate(d.getDate() - 1);
         while (toDateKey(d) >= habit.created && !doneOn(d)) {
-            stalled = stalled + 1;
+            if (isHabitDay(d)) {
+                stalled = stalled + 1;
+            }
             d.setDate(d.getDate() - 1);
         }
     }
@@ -850,7 +885,8 @@ function renderHistory(habits, records) {
         const head = document.createElement("div");
         head.className = "history-head";
         head.appendChild(makeIcon(habit.icon));
-        head.appendChild(makeHabitText(habit.name, "從 " + slashDate(habit.created) + " 開始 · 第 " + info.dayNumber + " 天"));
+        head.appendChild(makeHabitText(habit.name,
+            [goalDaysText(habit), "從 " + slashDate(habit.created) + " 開始", "第 " + info.dayNumber + " 天"].filter(function(t) { return t; }).join(" · ")));
         card.appendChild(head);
 
         const numbers = document.createElement("div");
@@ -960,8 +996,8 @@ function renderStats() {
                 checkinDays = checkinDays + 1;
                 run = run + 1;
                 bestRun = Math.max(bestRun, run);
-            } else if (key !== todayKey) {
-                run = 0; // 中斷了，重新數（今天還沒完成不算中斷）
+            } else if (key !== todayKey && items.length > 0) {
+                run = 0; // 中斷了，重新數（今天還沒完成、那天沒有要做的項目，都不算中斷）
             }
         }
 
@@ -1461,25 +1497,21 @@ function openAddDialog(type, item) {
     toggleIconMenu(false);
     document.getElementById("dialog-title").textContent = (isEdit ? "編輯" : "新增") + typeName;
     document.getElementById("submit-btn").textContent = isEdit ? "儲存" : "新增";
-    document.getElementById("date-fields").hidden = false; // 長期習慣也要選開始日期
+    document.getElementById("date-fields").hidden = !hasDates; // 長期習慣不用選日期（從新增那天開始）
     document.getElementById("end-field").hidden = !hasDates; // 只有短期目標、待辦事項有結束日期
     document.getElementById("end-label").textContent = (type === "todo") ? "期限" : "結束日期";
-    document.getElementById("weekday-field").hidden = (type !== "goal"); // 只有短期目標可以選每週幾
+    document.getElementById("weekday-field").hidden = (type === "todo"); // 長期習慣、短期目標可以選每週幾
 
     if (isEdit) {
         // 編輯：把原本的內容填進去
         document.getElementById("input-name").value = item.name;
         document.getElementById("input-note").value = item.note || "";
         chooseIcon(OLD_ICON_NAMES[item.icon] || item.icon);
-        if (type === "habit") {
-            // 舊資料沒有建立日期的話，就先填今天
-            document.getElementById("input-start").value = item.created || toDateKey(now());
-        }
         if (hasDates) {
             document.getElementById("input-start").value = item.start;
             document.getElementById("input-end").value = item.end;
         }
-        if (type === "goal") {
+        if (type === "goal" || type === "habit") {
             // 把原本選的星期幾勾回去（沒有 days 的舊資料 = 全部勾選）
             dayChecks().forEach(function(box) {
                 box.checked = !item.days || item.days.includes(Number(box.value));
@@ -1518,20 +1550,6 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         created: toDateKey(now()) // 建立日期：今天
     };
 
-    if (addingType === "habit") {
-        // 長期習慣的開始日期就是 created（打卡、統計都從這天開始算）
-        const start = document.getElementById("input-start").value;
-        if (start === "") {
-            alert("請選擇開始日期");
-            return;
-        }
-        if (start > toDateKey(now())) {
-            alert("開始日期不能比今天晚");
-            return;
-        }
-        newItem.created = start;
-    }
-
     if (addingType === "goal" || addingType === "todo") {
         const start = document.getElementById("input-start").value;
         const end = document.getElementById("input-end").value;
@@ -1548,7 +1566,7 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         newItem.end = end;
     }
 
-    if (addingType === "goal") {
+    if (addingType === "goal" || addingType === "habit") {
         // 收集有勾選的星期幾，例如 [1, 3, 5]
         const days = dayChecks()
             .filter(function(box) { return box.checked; })
@@ -1568,8 +1586,9 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         // 編輯：找到原本那一個，換掉內容（id 不變，所以以前的打卡紀錄都還在）
         const index = habits.findIndex(function(h) { return h.id === editingId; });
         newItem.id = editingId;
-        if (addingType !== "habit") {
-            newItem.created = habits[index].created; // 建立日期也要保留，不然會變成今天
+        if (habits[index].created) {
+            // 建立日期要保留，不然會變成今天（長期習慣的打卡、統計都從這天開始算）
+            newItem.created = habits[index].created;
         }
         if (habits[index].done) {
             newItem.done = habits[index].done; // 待辦事項的完成日期也要保留

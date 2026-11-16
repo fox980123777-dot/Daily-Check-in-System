@@ -22,7 +22,7 @@
 
     <!-- ?v=31 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
          記得 script.js 最上面的 APP_VERSION 也要改成一樣的數字（設定頁最下面會顯示） -->
-    <link rel="stylesheet" href="style.css?v=31">
+    <link rel="stylesheet" href="style.css?v=34">
 </head>
 <body>
 
@@ -215,7 +215,7 @@
                 </button>
                 <div class="icon-menu" id="icon-menu" hidden></div>
             </div>
-            <!-- 長期習慣只顯示開始日期；短期目標、待辦事項開始和結束都會顯示 -->
+            <!-- 只有短期目標、待辦事項才會顯示開始和結束日期（長期習慣從新增那天開始） -->
             <div class="date-fields" id="date-fields">
                 <label class="field">開始日期
                     <input type="date" id="input-start">
@@ -224,7 +224,7 @@
                     <input type="date" id="input-end">
                 </label>
             </div>
-            <!-- 只有短期目標才會顯示：每週哪幾天要做（預設全部勾選 = 每天） -->
+            <!-- 長期習慣、短期目標才會顯示：每週哪幾天要做（預設全部勾選 = 每天） -->
             <div class="field" id="weekday-field">
                 <div class="field-head">每週幾（可以選好幾天）
                     <button type="button" class="select-all-btn" id="select-all-days">全選</button>
@@ -298,8 +298,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=31"></script>
+<script src="script.js?v=34"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=31"></script>
+<script type="module" src="firebase.js?v=34"></script>
 </body>
 </html>

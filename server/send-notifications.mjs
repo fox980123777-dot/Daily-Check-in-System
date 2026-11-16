@@ -55,9 +55,12 @@ function isTodo(item) { return item.type === "todo"; }
 // 某個項目在那一天要不要做（待辦事項不算）
 function isActiveOn(item, key) {
     if (isTodo(item)) return false;
-    if (!isGoal(item)) return !item.created || key >= item.created;
-    if (key < item.start || key > item.end) return false;
-    // 短期目標只在有選的星期幾要做（沒有 days 的舊資料 = 每天）
+    if (!isGoal(item)) {
+        if (item.created && key < item.created) return false;
+    } else if (key < item.start || key > item.end) {
+        return false;
+    }
+    // 長期習慣和短期目標都只在有選的星期幾要做（沒有 days 的舊資料 = 每天）
     const parts = key.split("-").map(Number);
     const weekday = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])).getUTCDay();
     return !item.days || item.days.includes(weekday);
