@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 35;
+const APP_VERSION = 36;
 
 // ===== 現在時間（測試用：可以假裝今天是別天） =====
 // 網址後面加 ?today=2026-11-13，整個 App 就會把那天當作「今天」，用來預覽明天、下個月的樣子
@@ -1070,6 +1070,7 @@ function render() {
     renderCalendar();
     renderStats();
     renderSettings();
+    renderTrash();
     if (recordDialog.open) {
         renderRecord(); // 紀錄視窗開著的話也要更新（例如其他裝置同步過來）
     }
@@ -1367,10 +1368,10 @@ function toggleHabit(id) {
 }
 
 function deleteHabit(item) {
-    if (!confirm("確定要刪除「" + item.name + "」嗎？")) {
+    if (!confirm("確定要刪除「" + item.name + "」嗎？\n（會先放到設定頁的垃圾桶，之後還可以還原）")) {
         return;
     }
-    // 不真的刪掉，標上刪除日期就好（其他畫面用 loadHabits 就看不到它了）
+    // 不真的刪掉，標上刪除日期就好（其他畫面用 loadHabits 就看不到它了，垃圾桶看得到）
     const habits = loadAllHabits().map(function(h) {
         if (h.id === item.id) {
             return Object.assign({}, h, { deleted: toDateKey(now()) });
@@ -1380,6 +1381,98 @@ function deleteHabit(item) {
     saveHabits(habits);
     render();
 }
+
+// ===== 垃圾桶 =====
+// 垃圾桶裡的 = 有 deleted 標記的項目
+
+// 還原：把 deleted 標記拿掉，打卡紀錄和筆記本來就都還在
+function restoreHabit(item) {
+    const habits = loadAllHabits().map(function(h) {
+        if (h.id === item.id) {
+            const copy = Object.assign({}, h);
+            delete copy.deleted;
+            return copy;
+        }
+        return h;
+    });
+    saveHabits(habits);
+    render();
+}
+
+// 永久刪除：項目本身、它的打卡紀錄和筆記一起刪掉，不能復原
+// ids：要刪掉的項目代號（清空垃圾桶時會一次給好幾個）
+function purgeHabits(ids) {
+    // 這裡不能用 saveHabits（它會把已刪除的項目補回去），直接寫進 localStorage
+    const habits = loadAllHabits().filter(function(h) { return !ids.includes(h.id); });
+    localStorage.setItem("habits", JSON.stringify(habits));
+
+    const records = loadRecords();
+    Object.keys(records).forEach(function(key) {
+        records[key] = records[key].filter(function(id) { return !ids.includes(id); });
+        if (records[key].length === 0) {
+            delete records[key];
+        }
+    });
+    localStorage.setItem("records", JSON.stringify(records));
+
+    const notes = loadNotes();
+    Object.keys(notes).forEach(function(key) {
+        ids.forEach(function(id) { delete notes[key][id]; });
+        if (Object.keys(notes[key]).length === 0) {
+            delete notes[key];
+        }
+    });
+    saveNotes(notes); // 會順便上傳雲端（三份資料一起傳）
+    render();
+}
+
+function renderTrash() {
+    const trash = loadAllHabits().filter(function(h) { return h.deleted; });
+    const list = document.getElementById("trash-list");
+    list.innerHTML = "";
+    document.getElementById("empty-trash-btn").hidden = (trash.length === 0);
+
+    if (trash.length === 0) {
+        list.appendChild(makeEmpty("垃圾桶是空的"));
+        return;
+    }
+
+    const typeName = { habit: "長期習慣", goal: "短期目標", todo: "待辦事項" };
+    trash.forEach(function(item) {
+        const row = document.createElement("li");
+        row.className = "setting-row";
+        row.appendChild(makeIcon(item.icon));
+        row.appendChild(makeHabitText(item.name,
+            typeName[item.type || "habit"] + " · " + item.deleted.slice(5).replace("-", "/") + " 刪除"));
+
+        const restore = document.createElement("button");
+        restore.className = "edit-btn";
+        restore.textContent = "還原";
+        restore.addEventListener("click", function() {
+            restoreHabit(item);
+        });
+        row.appendChild(restore);
+
+        const purge = document.createElement("button");
+        purge.className = "delete-btn";
+        purge.textContent = "永久刪除";
+        purge.addEventListener("click", function() {
+            if (confirm("確定要永久刪除「" + item.name + "」嗎？\n它的打卡紀錄和筆記也會一起刪掉，不能復原。")) {
+                purgeHabits([item.id]);
+            }
+        });
+        row.appendChild(purge);
+
+        list.appendChild(row);
+    });
+}
+
+document.getElementById("empty-trash-btn").addEventListener("click", function() {
+    const ids = loadAllHabits().filter(function(h) { return h.deleted; }).map(function(h) { return h.id; });
+    if (ids.length > 0 && confirm("確定要清空垃圾桶嗎？\n裡面 " + ids.length + " 個項目的打卡紀錄和筆記也會一起刪掉，不能復原。")) {
+        purgeHabits(ids);
+    }
+});
 
 // ===== 圖示下拉選單 =====
 // 可以選的圖示：name 是 Lucide 的名字，label 是顯示的中文
@@ -1710,7 +1803,7 @@ document.getElementById("reset-btn").addEventListener("click", function() {
 document.getElementById("export-btn").addEventListener("click", function() {
     // ① 把習慣和打卡紀錄打包成一個物件，再轉成文字（縮排 2 格比較好讀）
     const data = {
-        habits: loadHabits(),
+        habits: loadAllHabits(), // 含垃圾桶裡的，匯入後垃圾桶和舊紀錄的名字才會在
         records: loadRecords(),
         notes: loadNotes()
     };
@@ -1769,7 +1862,8 @@ importFile.addEventListener("change", function() {
         }
 
         if (confirm("匯入會覆蓋目前所有的習慣、打卡紀錄和筆記，確定要匯入嗎？")) {
-            saveHabits(data.habits);
+            // 直接整份覆蓋（用 saveHabits 會把這台裝置垃圾桶裡的項目混進來）
+            localStorage.setItem("habits", JSON.stringify(data.habits));
             saveRecords(data.records);
             // 舊的備份檔沒有筆記，就清成空的
             const notesOk = typeof data.notes === "object" && data.notes !== null && !Array.isArray(data.notes);

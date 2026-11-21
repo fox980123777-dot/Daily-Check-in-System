@@ -22,7 +22,7 @@
 
     <!-- ?v=31 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
          記得 script.js 最上面的 APP_VERSION 也要改成一樣的數字（設定頁最下面會顯示） -->
-    <link rel="stylesheet" href="style.css?v=35">
+    <link rel="stylesheet" href="style.css?v=36">
 </head>
 <body>
 
@@ -170,6 +170,13 @@
             </div>
             <ul class="habit-list" id="manage-todo-list"></ul>
 
+            <!-- 垃圾桶：刪掉的項目會先放這裡，可以還原或永久刪除 -->
+            <div class="section-head">
+                <h2>垃圾桶</h2>
+                <button class="delete-btn" id="empty-trash-btn" hidden>全部清空</button>
+            </div>
+            <ul class="habit-list" id="trash-list"></ul>
+
             <div class="section-head">
                 <h2>帳戶</h2>
             </div>
@@ -311,8 +318,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=35"></script>
+<script src="script.js?v=36"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=35"></script>
+<script type="module" src="firebase.js?v=36"></script>
 </body>
 </html>
