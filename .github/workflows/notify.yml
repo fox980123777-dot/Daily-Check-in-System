@@ -23,6 +23,10 @@ on:
           - morning
           - evening
 
+# GitHub 給這次執行的權限：只需要讀程式碼（推播用的是 Firebase 金鑰，不用 GitHub 的權限）
+permissions:
+  contents: read
+
 # 同一時間只跑一個，前一個還沒跑完，下一個就排隊等
 concurrency:
   group: notify

@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 36;
+const APP_VERSION = 37;
 
 // ===== 現在時間（測試用：可以假裝今天是別天） =====
 // 網址後面加 ?today=2026-11-13，整個 App 就會把那天當作「今天」，用來預覽明天、下個月的樣子
@@ -1826,6 +1826,72 @@ document.getElementById("export-btn").addEventListener("click", function() {
 // ===== 備份資料：匯入 =====
 const importFile = document.getElementById("import-file");
 
+// 檢查備份檔的每一筆資料：沒問題回傳 null，有問題回傳原因（給使用者看的文字）
+function findBackupProblem(data) {
+    const DATE = /^\d{4}-\d{2}-\d{2}$/;
+    function isPlainObject(value) {
+        return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+    function isDateOrMissing(value) {
+        return value === undefined || (typeof value === "string" && DATE.test(value));
+    }
+    function isStringOrMissing(value) {
+        return value === undefined || typeof value === "string";
+    }
+
+    if (!isPlainObject(data) || !Array.isArray(data.habits) || !isPlainObject(data.records)) {
+        return "缺少習慣清單或打卡紀錄";
+    }
+
+    // ① 習慣、短期目標、待辦事項
+    const ids = [];
+    for (let i = 0; i < data.habits.length; i++) {
+        const item = data.habits[i];
+        const where = "第 " + (i + 1) + " 個項目";
+        if (!isPlainObject(item)) return where + "格式不對";
+        if (typeof item.id !== "string" || item.id === "") return where + "沒有代號";
+        if (ids.includes(item.id)) return where + "的代號重複了";
+        ids.push(item.id);
+        if (typeof item.name !== "string") return where + "沒有名稱";
+        if (!isStringOrMissing(item.note) || !isStringOrMissing(item.icon)) return where + "的說明或圖示格式不對";
+        if (item.type !== undefined && item.type !== "goal" && item.type !== "todo") return where + "的種類不對";
+        if (![item.created, item.start, item.end, item.done, item.deleted].every(isDateOrMissing)) {
+            return where + "的日期格式不對";
+        }
+        if ((item.type === "goal" || item.type === "todo") && (item.start === undefined || item.end === undefined)) {
+            return where + "缺少開始或結束日期";
+        }
+        if (item.days !== undefined && !(Array.isArray(item.days) && item.days.every(function(d) {
+            return Number.isInteger(d) && d >= 0 && d <= 6;
+        }))) {
+            return where + "的星期幾格式不對";
+        }
+        if (item.inStreak !== undefined && typeof item.inStreak !== "boolean") return where + "的連續打卡設定不對";
+    }
+
+    // ② 打卡紀錄：{ "2026-11-08": ["read", "sport"] }
+    for (const key of Object.keys(data.records)) {
+        const list = data.records[key];
+        if (!DATE.test(key)) return "打卡紀錄裡有不是日期的資料（" + key + "）";
+        if (!Array.isArray(list) || !list.every(function(id) { return typeof id === "string"; })) {
+            return key + " 的打卡紀錄格式不對";
+        }
+    }
+
+    // ③ 筆記（舊的備份檔沒有，可以省略）：{ "2026-11-12": { "h123": "文字" } }
+    if (data.notes !== undefined) {
+        if (!isPlainObject(data.notes)) return "筆記格式不對";
+        for (const key of Object.keys(data.notes)) {
+            const day = data.notes[key];
+            if (!DATE.test(key)) return "筆記裡有不是日期的資料（" + key + "）";
+            if (!isPlainObject(day) || !Object.values(day).every(function(text) { return typeof text === "string"; })) {
+                return key + " 的筆記格式不對";
+            }
+        }
+    }
+    return null;
+}
+
 // 按「匯入資料」→ 幫忙點藏起來的選擇檔案元件
 document.getElementById("import-btn").addEventListener("click", function() {
     importFile.click();
@@ -1851,13 +1917,10 @@ importFile.addEventListener("change", function() {
             return;
         }
 
-        // 檢查內容是不是我們匯出的格式
-        const ok = data !== null
-            && Array.isArray(data.habits)
-            && typeof data.records === "object" && data.records !== null
-            && !Array.isArray(data.records);
-        if (!ok) {
-            alert("這個檔案不是打卡備份檔，無法匯入。");
+        // 檢查內容是不是我們匯出的格式（每一筆都要檢查，壞掉的資料匯入後會同步到雲端、蓋掉所有裝置）
+        const problem = findBackupProblem(data);
+        if (problem !== null) {
+            alert("這個檔案不是正確的打卡備份檔，無法匯入。\n\n原因：" + problem);
             return;
         }
 
@@ -1866,8 +1929,7 @@ importFile.addEventListener("change", function() {
             localStorage.setItem("habits", JSON.stringify(data.habits));
             saveRecords(data.records);
             // 舊的備份檔沒有筆記，就清成空的
-            const notesOk = typeof data.notes === "object" && data.notes !== null && !Array.isArray(data.notes);
-            saveNotes(notesOk ? data.notes : {});
+            saveNotes(data.notes || {});
             render();
             alert("匯入完成！");
         }

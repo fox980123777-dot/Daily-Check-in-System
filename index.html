@@ -18,11 +18,15 @@
 
     <!-- Lucide Icons 圖示庫：寫 <i data-lucide="圖示名稱"></i>，它就會變成圖示 -->
     <!-- 所有圖示名稱可以到 https://lucide.dev/icons 查 -->
-    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <!-- integrity：檔案的「指紋」，CDN 上的檔案被偷改的話，瀏覽器會拒絕執行 -->
+    <!-- 換版本時指紋也要重算：curl -sL 網址 | openssl dgst -sha384 -binary | openssl base64 -A -->
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"
+            integrity="sha384-uTYyvsSSUZeaPhb5RbKlQa0zY/WpX/QHfvg2mczXyBQOpkWPEDy9lczyp+w7SKXu"
+            crossorigin="anonymous"></script>
 
     <!-- ?v=31 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
          記得 script.js 最上面的 APP_VERSION 也要改成一樣的數字（設定頁最下面會顯示） -->
-    <link rel="stylesheet" href="style.css?v=36">
+    <link rel="stylesheet" href="style.css?v=37">
 </head>
 <body>
 
@@ -318,8 +322,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=36"></script>
+<script src="script.js?v=37"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=36"></script>
+<script type="module" src="firebase.js?v=37"></script>
 </body>
 </html>
