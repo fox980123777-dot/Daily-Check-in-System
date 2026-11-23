@@ -26,7 +26,7 @@
 
     <!-- ?v=31 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
          記得 script.js 最上面的 APP_VERSION 也要改成一樣的數字（設定頁最下面會顯示） -->
-    <link rel="stylesheet" href="style.css?v=37">
+    <link rel="stylesheet" href="style.css?v=38">
 </head>
 <body>
 
@@ -65,22 +65,32 @@
                 <p class="streak" id="streak">已連續打卡 0 天</p>
             </div>
 
-            <div class="section-head">
+            <!-- collapsible：點標題或右邊的箭頭可以收合／展開下面的清單（記在這台裝置） -->
+            <div class="section-head collapsible" data-collapse="today-habit">
                 <h2>長期習慣</h2>
-                <button class="icon-btn" id="add-habit-btn" aria-label="新增習慣"><i data-lucide="circle-plus"></i></button>
+                <div class="head-btns">
+                    <button class="icon-btn" id="add-habit-btn" aria-label="新增習慣"><i data-lucide="circle-plus"></i></button>
+                    <button class="icon-btn collapse-btn" aria-label="收合長期習慣" aria-expanded="true"><i data-lucide="chevron-down"></i></button>
+                </div>
             </div>
             <ul class="habit-list" id="habit-list"></ul>
 
-            <div class="section-head">
+            <div class="section-head collapsible" data-collapse="today-goal">
                 <h2>短期進度</h2>
-                <button class="icon-btn" id="add-goal-btn" aria-label="新增短期目標"><i data-lucide="circle-plus"></i></button>
+                <div class="head-btns">
+                    <button class="icon-btn" id="add-goal-btn" aria-label="新增短期目標"><i data-lucide="circle-plus"></i></button>
+                    <button class="icon-btn collapse-btn" aria-label="收合短期進度" aria-expanded="true"><i data-lucide="chevron-down"></i></button>
+                </div>
             </div>
             <ul class="habit-list" id="goal-list"></ul>
 
             <!-- 待辦事項：打勾之後，隔天就會消失 -->
-            <div class="section-head">
+            <div class="section-head collapsible" data-collapse="today-todo">
                 <h2>待辦事項</h2>
-                <button class="icon-btn" id="add-todo-btn" aria-label="新增待辦事項"><i data-lucide="circle-plus"></i></button>
+                <div class="head-btns">
+                    <button class="icon-btn" id="add-todo-btn" aria-label="新增待辦事項"><i data-lucide="circle-plus"></i></button>
+                    <button class="icon-btn collapse-btn" aria-label="收合待辦事項" aria-expanded="true"><i data-lucide="chevron-down"></i></button>
+                </div>
             </div>
             <ul class="habit-list" id="todo-list"></ul>
         </section>
@@ -156,28 +166,40 @@
         <!-- ===== 設定頁 ===== -->
         <section id="page-settings" hidden>
             <!-- 管理項目：分類跟今日頁一樣，右邊的 ⊕ 也可以新增 -->
-            <div class="section-head" style="margin-top: 16px">
+            <div class="section-head collapsible" data-collapse="manage-habit" style="margin-top: 16px">
                 <h2>長期習慣</h2>
-                <button class="icon-btn" data-add="habit" aria-label="新增習慣"><i data-lucide="circle-plus"></i></button>
+                <div class="head-btns">
+                    <button class="icon-btn" data-add="habit" aria-label="新增習慣"><i data-lucide="circle-plus"></i></button>
+                    <button class="icon-btn collapse-btn" aria-label="收合長期習慣" aria-expanded="true"><i data-lucide="chevron-down"></i></button>
+                </div>
             </div>
             <ul class="habit-list" id="manage-habit-list"></ul>
 
-            <div class="section-head">
+            <div class="section-head collapsible" data-collapse="manage-goal">
                 <h2>短期進度</h2>
-                <button class="icon-btn" data-add="goal" aria-label="新增短期目標"><i data-lucide="circle-plus"></i></button>
+                <div class="head-btns">
+                    <button class="icon-btn" data-add="goal" aria-label="新增短期目標"><i data-lucide="circle-plus"></i></button>
+                    <button class="icon-btn collapse-btn" aria-label="收合短期進度" aria-expanded="true"><i data-lucide="chevron-down"></i></button>
+                </div>
             </div>
             <ul class="habit-list" id="manage-goal-list"></ul>
 
-            <div class="section-head">
+            <div class="section-head collapsible" data-collapse="manage-todo">
                 <h2>待辦事項</h2>
-                <button class="icon-btn" data-add="todo" aria-label="新增待辦事項"><i data-lucide="circle-plus"></i></button>
+                <div class="head-btns">
+                    <button class="icon-btn" data-add="todo" aria-label="新增待辦事項"><i data-lucide="circle-plus"></i></button>
+                    <button class="icon-btn collapse-btn" aria-label="收合待辦事項" aria-expanded="true"><i data-lucide="chevron-down"></i></button>
+                </div>
             </div>
             <ul class="habit-list" id="manage-todo-list"></ul>
 
             <!-- 垃圾桶：刪掉的項目會先放這裡，可以還原或永久刪除 -->
-            <div class="section-head">
+            <div class="section-head collapsible" data-collapse="trash">
                 <h2>垃圾桶</h2>
-                <button class="delete-btn" id="empty-trash-btn" hidden>全部清空</button>
+                <div class="head-btns">
+                    <button class="delete-btn" id="empty-trash-btn" hidden>全部清空</button>
+                    <button class="icon-btn collapse-btn" aria-label="收合垃圾桶" aria-expanded="true"><i data-lucide="chevron-down"></i></button>
+                </div>
             </div>
             <ul class="habit-list" id="trash-list"></ul>
 
@@ -322,8 +344,8 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=37"></script>
+<script src="script.js?v=38"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=37"></script>
+<script type="module" src="firebase.js?v=38"></script>
 </body>
 </html>

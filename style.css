@@ -186,6 +186,45 @@ svg {
     font-weight: 600;
 }
 
+/* ===== 可收合的區塊（長期習慣、短期進度、待辦事項、垃圾桶） ===== */
+/* 右邊放 ⊕ 和箭頭；點標題列任何地方都能收合，點 ⊕ 還是新增 */
+.section-head.collapsible {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.head-btns {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* 箭頭：展開時朝下，收起來時轉成朝右 */
+.collapse-btn svg {
+    transition: transform 0.2s ease;
+}
+
+.section-head.collapsed .collapse-btn svg {
+    transform: rotate(-90deg);
+}
+
+/* 收起來：藏住下面的清單，標題列補上原本清單的下方間距 */
+.section-head.collapsed {
+    margin-bottom: 28px;
+}
+
+.section-head.collapsed + .habit-list {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .collapse-btn svg {
+        transition: none;
+    }
+}
+
 .habit-list {
     list-style: none;
     margin: 0 0 28px;

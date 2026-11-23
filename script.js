@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 37;
+const APP_VERSION = 38;
 
 // ===== 現在時間（測試用：可以假裝今天是別天） =====
 // 網址後面加 ?today=2026-11-13，整個 App 就會把那天當作「今天」，用來預覽明天、下個月的樣子
@@ -1970,6 +1970,54 @@ function fillCreatedDates() {
         saveHabits(habits);
     }
 }
+
+// ===== 可收合的區塊 =====
+// 哪些區塊收起來了記在這台裝置（localStorage 的 collapsedSections），不會同步到雲端
+// 例如 ["today-goal", "manage-todo"]；讀不到（例如無痕模式）就當作全部展開
+function loadCollapsed() {
+    try {
+        const saved = JSON.parse(localStorage.getItem("collapsedSections"));
+        return Array.isArray(saved) ? saved : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function saveCollapsed(list) {
+    try {
+        localStorage.setItem("collapsedSections", JSON.stringify(list));
+    } catch (error) {
+        // 存不了也沒關係，只是下次打開會恢復展開
+    }
+}
+
+function setCollapsed(head, collapsed) {
+    head.classList.toggle("collapsed", collapsed);
+    const btn = head.querySelector(".collapse-btn");
+    const title = head.querySelector("h2").textContent;
+    btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    btn.setAttribute("aria-label", (collapsed ? "展開" : "收合") + title);
+}
+
+document.querySelectorAll(".section-head.collapsible").forEach(function(head) {
+    const key = head.dataset.collapse;
+    setCollapsed(head, loadCollapsed().includes(key));
+
+    head.addEventListener("click", function(event) {
+        // 點到 ⊕（新增）就交給它自己處理，不要順便收合
+        const button = event.target.closest("button");
+        if (button && !button.classList.contains("collapse-btn")) {
+            return;
+        }
+        const collapsed = !head.classList.contains("collapsed");
+        setCollapsed(head, collapsed);
+        const list = loadCollapsed().filter(function(k) { return k !== key; });
+        if (collapsed) {
+            list.push(key);
+        }
+        saveCollapsed(list);
+    });
+});
 
 // ===== 開始 =====
 migrateOldData();
