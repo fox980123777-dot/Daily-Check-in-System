@@ -4,6 +4,8 @@
 #   ① 不排在整點，改排在 7、22、37、52 分
 #   ② 在提醒時段裡每 15 分鐘排一次，程式會看台灣現在幾點決定要不要發，
 #      而且同一天同一種提醒只發一次（見 send-notifications.mjs 的 auto 模式）
+#   ③ 實際上 GitHub 排程每天只跑 2 次、而且都不在提醒時段，所以改由 cron-job.org（免費）
+#      在台灣 8:00、20:00 用 API 觸發 workflow_dispatch（mode=auto），這裡的排程只當備援
 
 name: 推播提醒
 
@@ -22,6 +24,7 @@ on:
           - test
           - morning
           - evening
+          - auto            # cron-job.org 準時呼叫時用這個（會看台灣幾點、同一天只發一次）
 
 # GitHub 給這次執行的權限：只需要讀程式碼（推播用的是 Firebase 金鑰，不用 GitHub 的權限）
 permissions:
