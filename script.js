@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 40;
+const APP_VERSION = 41;
 
 // ===== 現在時間（測試用：可以假裝今天是別天） =====
 // 網址後面加 ?today=2026-11-13，整個 App 就會把那天當作「今天」，用來預覽明天、下個月的樣子
@@ -230,7 +230,7 @@ function formatDate(date) {
     return (date.getMonth() + 1) + " 月 " + date.getDate() + " 日，星期" + WEEKDAYS[date.getDay()];
 }
 
-// 某一天有沒有打卡成功：那天要做的項目「全部完成（100%）」才算
+// 某一天有沒有打卡成功：那天要做的項目「至少完成一項」就算
 function hasCheckin(records, date) {
     const key = toDateKey(date);
     const doneIds = records[key] || [];
@@ -245,8 +245,8 @@ function hasCheckin(records, date) {
     if (items.length === 0) {
         return false;
     }
-    // every：每一個都符合才會是 true
-    return items.every(function(h) { return doneIds.includes(h.id); });
+    // some：只要有一個符合就是 true
+    return items.some(function(h) { return doneIds.includes(h.id); });
 }
 
 // 這個項目要不要算進「連續打卡」（設定裡關掉的話是 inStreak: false；舊資料沒有這個欄位 = 要算）
@@ -278,7 +278,7 @@ function countStreak(records) {
             count = count + 1;
             emptyRun = 0;
         } else if (hasItemsOn(day)) {
-            break; // 有要做的項目卻沒全部完成，連續就斷了
+            break; // 有要做的項目卻一項都沒完成，連續就斷了
         } else {
             emptyRun = emptyRun + 1;
         }
@@ -668,7 +668,7 @@ function renderCalendar() {
             cell.classList.add("done");
             checkinDays = checkinDays + 1;
         } else if (records[key] !== undefined) {
-            cell.classList.add("partial"); // 有做一些，但還沒 100%
+            cell.classList.add("partial"); // 有打勾，但只有不算入連續打卡的項目
         }
         if (key === todayKey) {
             cell.classList.add("today");
@@ -1142,17 +1142,17 @@ function getNotices() {
         }
     });
 
-    // 昨天沒有全部完成
+    // 昨天一項都沒完成（沒有打卡）
     const yesterdayItems = habits.filter(function(h) { return isActiveOn(h, yesterdayKey); });
     if (yesterdayItems.length > 0 && !hasCheckin(records, yesterday)) {
         const doneIds = records[yesterdayKey] || [];
         const done = yesterdayItems.filter(function(h) { return doneIds.includes(h.id); }).length;
         notices.push({ id: "missed-" + yesterdayKey, icon: "calendar-x",
-            text: "昨天沒有全部完成（" + done + " / " + yesterdayItems.length + "）",
+            text: "昨天沒有打卡（" + done + " / " + yesterdayItems.length + "）",
             note: "可以按左上角選單查看昨天的紀錄" });
     }
 
-    // 晚上 8 點以後，今天還沒全部完成
+    // 晚上 8 點以後，今天還沒打卡（一項都還沒完成）
     const todayItems = habits.filter(function(h) { return isActiveOn(h, todayKey); });
     if (current.getHours() >= 20 && todayItems.length > 0 && !hasCheckin(records, today)) {
         const doneIds = records[todayKey] || [];
