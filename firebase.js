@@ -2,7 +2,7 @@
 // 這個檔案是「模組」（index.html 裡用 type="module" 載入），所以可以用 import
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, serverTimestamp, Bytes } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 import { getMessaging, getToken, deleteToken, isSupported } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-messaging.js";
 
 // 推播用的公開金鑰（VAPID），從 Firebase「專案設定 → Cloud Messaging」拿的，可以公開
@@ -69,6 +69,7 @@ function applyCloudData(data) {
     localStorage.setItem("notes", JSON.stringify(data.notes || {}));
     removeUnknownRecords(); // 有清掉東西的話會自動再傳回雲端
     render();
+    syncImages(); // 別台裝置可能加了新圖片，這台還沒有
 }
 
 // 把資料轉成文字來比較（先把 key 排好順序，不然順序不同會被當成不一樣）
@@ -88,6 +89,27 @@ function isSameData(a, b) {
     // 舊的雲端資料沒有 notes，當作空的 {} 來比
     return toSortedText({ habits: a.habits, records: a.records, notes: a.notes || {} })
         === toSortedText({ habits: b.habits, records: b.records, notes: b.notes || {} });
+}
+
+// 這台裝置是不是全新的：沒打過卡、沒寫過筆記，習慣也還是一開始的預設那 5 個
+// 注意：App 一打開就會幫預設習慣補上建立日期（created）並存起來（script.js 的 fillCreatedDates），
+// 所以不能只看「localStorage 裡有沒有 habits」，要比對內容是不是跟預設一樣（不管 created）
+function isUntouchedDevice(local) {
+    if (Object.keys(local.records).length > 0 || Object.keys(local.notes).length > 0) {
+        return false;
+    }
+    if (local.habits.length !== DEFAULT_HABITS.length) {
+        return false;
+    }
+    // 兩邊都拿掉 created 再比：第一次打開時 fillCreatedDates 會直接把日期寫進 DEFAULT_HABITS 本身
+    function withoutCreated(habit) {
+        const copy = Object.assign({}, habit);
+        delete copy.created;
+        return toSortedText(copy);
+    }
+    return local.habits.every(function(habit, i) {
+        return withoutCreated(habit) === withoutCreated(DEFAULT_HABITS[i]);
+    });
 }
 
 // 上傳這台裝置的資料到雲端
@@ -124,9 +146,8 @@ async function startSync(user) {
             // 雲端還沒有資料 → 把這台裝置的資料傳上去
             cloudRef = ref;
             await uploadNow();
-        } else if (localStorage.getItem("habits") === null && Object.keys(local.records).length === 0
-                && Object.keys(local.notes).length === 0) {
-            // 這台裝置是全新的（還沒新增過習慣、也沒打過卡）→ 直接用雲端的，不用問
+        } else if (isUntouchedDevice(local)) {
+            // 這台裝置是全新的（還沒動過預設習慣、也沒打過卡、沒寫過筆記）→ 直接用雲端的，不用問
             cloudRef = ref;
             applyCloudData(snapshot.data());
         } else if (!isSameData(snapshot.data(), local)) {
@@ -147,6 +168,7 @@ async function startSync(user) {
     }
 
     cloudRef = ref;
+    syncImages(); // 補傳這台裝置還沒上傳的圖片、下載這台裝置還沒有的圖片
 
     // 監聽雲端：其他裝置改了資料，這裡會馬上收到並更新畫面
     stopListening = onSnapshot(ref, function(snapshot) {
@@ -170,6 +192,131 @@ function stopSync() {
     }
     // 下次登入時重新比較一次（可能換了帳號）
     localStorage.removeItem("syncedUid");
+}
+
+// ===== 自己的圖片：雲端同步 =====
+// 每張圖片在雲端是一份文件：users/{uid}/images/{圖片代號}，內容是 { data: 圖片, type: "image/jpeg" }
+// 跟習慣資料分開放，習慣資料才不會被圖片塞滿（一份文件最多 1MB）
+// 這台裝置上傳過哪些圖片記在 localStorage 的 uploadedImages-{uid}，不用每次都重傳
+
+function uploadedImages(uid) {
+    return JSON.parse(localStorage.getItem("uploadedImages-" + uid) || "[]");
+}
+
+function markUploaded(uid, id, uploaded) {
+    const list = uploadedImages(uid).filter(function(x) { return x !== id; });
+    if (uploaded) {
+        list.push(id);
+    }
+    localStorage.setItem("uploadedImages-" + uid, JSON.stringify(list));
+}
+
+function imageRef(uid, id) {
+    return doc(db, "users", uid, "images", id);
+}
+
+async function uploadImage(uid, id, blob) {
+    await setDoc(imageRef(uid, id), {
+        data: Bytes.fromUint8Array(new Uint8Array(await blob.arrayBuffer())),
+        type: blob.type || "image/jpeg",
+        createdAt: serverTimestamp()
+    });
+    markUploaded(uid, id, true);
+}
+
+// image-crop.js 存圖片時會呼叫：有登入就傳上雲端（沒登入的話，之後登入時 syncImages 會補傳）
+window.cloudSaveImage = function(id, blob) {
+    if (cloudRef === null) {
+        return;
+    }
+    uploadImage(cloudRef.id, id, blob).catch(function(error) {
+        console.error("圖片上傳失敗（之後會再試）", error);
+    });
+};
+
+// image-crop.js 刪圖片時會呼叫
+window.cloudDeleteImage = function(id) {
+    if (cloudRef === null) {
+        return;
+    }
+    const uid = cloudRef.id;
+    deleteDoc(imageRef(uid, id)).then(function() {
+        markUploaded(uid, id, false);
+    }).catch(function(error) {
+        console.error("刪除雲端圖片失敗", error);
+    });
+};
+
+// 對照習慣資料用到的圖片：
+//   這台有、雲端還沒有 → 上傳；雲端有、這台沒有 → 下載
+// 別台裝置剛加的圖片可能還在上傳中，找不到的話等 5 秒再找，最多 3 次
+let imageSyncRunning = false;
+let imageSyncAgain = false;
+let imageRetryTimer = null;
+let imageRetries = 0;
+
+async function syncImages(isRetry) {
+    if (cloudRef === null) {
+        return;
+    }
+    if (imageSyncRunning) {
+        imageSyncAgain = true; // 正在跑，跑完再跑一次
+        return;
+    }
+    if (!isRetry) {
+        imageRetries = 0;
+        clearTimeout(imageRetryTimer);
+    }
+    imageSyncRunning = true;
+    const uid = cloudRef.id;
+    let downloaded = false;
+    let missing = false;
+
+    try {
+        await imagesLoaded; // 等這台裝置的圖片讀完，才知道缺哪些
+        const ids = Array.from(new Set(loadAllHabits().map(function(h) { return h.image; }).filter(Boolean)));
+        const uploaded = uploadedImages(uid);
+
+        for (const id of ids) {
+            try {
+                if (imageURLs[id]) {
+                    if (!uploaded.includes(id)) {
+                        const blob = await getImageBlob(id);
+                        if (blob) {
+                            await uploadImage(uid, id, blob);
+                        }
+                    }
+                } else {
+                    const snapshot = await getDoc(imageRef(uid, id));
+                    if (snapshot.exists()) {
+                        const data = snapshot.data();
+                        const blob = new Blob([data.data.toUint8Array()], { type: data.type || "image/jpeg" });
+                        await storeImageLocally(id, blob);
+                        markUploaded(uid, id, true);
+                        downloaded = true;
+                    } else {
+                        missing = true;
+                    }
+                }
+            } catch (error) {
+                console.error("同步圖片 " + id + " 失敗", error); // 一張失敗不影響其他張
+            }
+        }
+    } catch (error) {
+        console.error("同步圖片失敗", error);
+    }
+
+    imageSyncRunning = false;
+    if (downloaded) {
+        render();
+    }
+    if (imageSyncAgain) {
+        imageSyncAgain = false;
+        syncImages();
+    } else if (missing && imageRetries < 3) {
+        imageRetries++;
+        imageRetryTimer = setTimeout(function() { syncImages(true); }, 5000);
+    }
 }
 
 // ===== 推播通知 =====

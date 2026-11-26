@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 39;
+const APP_VERSION = 40;
 
 // ===== 現在時間（測試用：可以假裝今天是別天） =====
 // 網址後面加 ?today=2026-11-13，整個 App 就會把那天當作「今天」，用來預覽明天、下個月的樣子
@@ -2115,5 +2115,5 @@ migrateOldData();
 removeUnknownRecords();
 fillCreatedDates();
 render();
-loadAllImages().then(render); // 自己的圖片讀出來之後再畫一次（讀圖片要一點時間，先用圖示頂著）
+imagesLoaded.then(render); // 自己的圖片讀出來之後再畫一次（讀圖片要一點時間，先用圖示頂著）
 document.getElementById("app-version").textContent = "版本 v" + APP_VERSION;

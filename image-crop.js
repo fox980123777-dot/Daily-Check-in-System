@@ -50,17 +50,38 @@ function rememberImage(id, blob) {
     imageURLs[id] = URL.createObjectURL(blob);
 }
 
-function saveImage(id, blob) {
+// 只存在這台裝置（從雲端下載回來的圖片用這個，不用再傳回雲端）
+function storeImageLocally(id, blob) {
     rememberImage(id, blob);
     return imageStore("readwrite", function(store) { return store.put(blob, id); });
 }
 
+// 存圖片：這台裝置 + 雲端（有登入的話；cloudSaveImage 是 firebase.js 提供的）
+function saveImage(id, blob) {
+    if (window.cloudSaveImage) {
+        window.cloudSaveImage(id, blob);
+    }
+    return storeImageLocally(id, blob);
+}
+
+// 刪圖片：這台裝置 + 雲端（有登入的話）
 function deleteImage(id) {
+    if (window.cloudDeleteImage) {
+        window.cloudDeleteImage(id);
+    }
     if (imageURLs[id]) {
         URL.revokeObjectURL(imageURLs[id]);
         delete imageURLs[id];
     }
     return imageStore("readwrite", function(store) { return store.delete(id); });
+}
+
+// 從記憶體拿出圖片本身（上傳雲端時用）
+function getImageBlob(id) {
+    if (!imageURLs[id]) {
+        return Promise.resolve(null);
+    }
+    return fetch(imageURLs[id]).then(function(response) { return response.blob(); });
 }
 
 // 把這台裝置的圖片全部讀出來
@@ -83,6 +104,9 @@ function loadAllImages() {
         console.error("讀取圖片失敗", error); // 例如無痕模式不能用 IndexedDB
     });
 }
+
+// 一載入就開始讀；script.js 讀完會重畫畫面，firebase.js 同步圖片前也要先等它讀完
+const imagesLoaded = loadAllImages();
 
 function newImageId() {
     return "img_" + Date.now();
