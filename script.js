@@ -1,6 +1,6 @@
 // ===== 版本號 =====
 // 要跟 index.html 裡的 ?v= 數字一樣；設定頁最下面會顯示，用來確認手機是不是已經更新到新版
-const APP_VERSION = 38;
+const APP_VERSION = 39;
 
 // ===== 現在時間（測試用：可以假裝今天是別天） =====
 // 網址後面加 ?today=2026-11-13，整個 App 就會把那天當作「今天」，用來預覽明天、下個月的樣子
@@ -186,7 +186,7 @@ function appendNoteOnlyRows(list, dayKey, shownIds) {
             : goneItemText(id);
         const row = document.createElement("li");
         row.className = "setting-row";
-        row.appendChild(makeIcon(info.icon));
+        row.appendChild(item ? makeItemIcon(item) : makeIcon(info.icon));
         const text = makeHabitText(info.name, info.note);
         addMemo(text, dayNotes[id]);
         row.appendChild(text);
@@ -444,6 +444,19 @@ function makeIcon(name) {
     return icon;
 }
 
+// 項目的圖示：有自己的圖片就用圖片，沒有（或這台裝置找不到那張圖）就用選的圖示
+// imageURLs 是 image-crop.js 裡的，記著這台裝置有哪些圖片
+function makeItemIcon(item) {
+    if (item.image && imageURLs[item.image]) {
+        const img = document.createElement("img");
+        img.className = "item-image";
+        img.src = imageURLs[item.image];
+        img.alt = "";
+        return img;
+    }
+    return makeIcon(item.icon);
+}
+
 // 做出名稱 + 小字說明
 function makeHabitText(name, note) {
     const box = document.createElement("span");
@@ -489,7 +502,7 @@ function habitDayText(habit) {
 function makeRow(item, isDone) {
     const button = document.createElement("button");
     button.className = "habit";
-    button.appendChild(makeIcon(item.icon));
+    button.appendChild(makeItemIcon(item));
 
     if (isGoal(item) || isTodo(item)) {
         const info = isTodo(item) ? todoInfo(item) : goalInfo(item);
@@ -692,7 +705,7 @@ function renderCalendar() {
         row.className = "setting-row";
         let text;
         if (item) {
-            row.appendChild(makeIcon(item.icon));
+            row.appendChild(makeItemIcon(item));
             text = makeHabitText(item.name, isGoal(item) ? "短期目標" : item.note);
         } else {
             // 舊版的打卡，或已經被刪掉的習慣
@@ -734,7 +747,7 @@ function renderSettings() {
         const list = lists[item.type || "habit"];
         const row = document.createElement("li");
         row.className = "setting-row";
-        row.appendChild(makeIcon(item.icon));
+        row.appendChild(makeItemIcon(item));
 
         let note = item.note;
         if (isDailyHabit(item) && item.created) {
@@ -889,7 +902,7 @@ function renderHistory(habits, records) {
 
         const head = document.createElement("div");
         head.className = "history-head";
-        head.appendChild(makeIcon(habit.icon));
+        head.appendChild(makeItemIcon(habit));
         head.appendChild(makeHabitText(habit.name,
             [goalDaysText(habit), "從 " + slashDate(habit.created) + " 開始", "第 " + info.dayNumber + " 天"].filter(function(t) { return t; }).join(" · ")));
         card.appendChild(head);
@@ -1044,7 +1057,7 @@ function renderStats() {
 
         const row = document.createElement("li");
         row.className = "setting-row";
-        row.appendChild(makeIcon(item.icon));
+        row.appendChild(makeItemIcon(item));
 
         const text = makeHabitText(item.name, "完成 " + doneDays + " / " + needKeys.length + " 天");
         text.appendChild(makeBar(percent, "goal-bar"));
@@ -1257,7 +1270,7 @@ function renderRecord() {
     items.forEach(function(item) {
         const row = document.createElement("li");
         row.className = "setting-row";
-        row.appendChild(makeIcon(item.icon));
+        row.appendChild(makeItemIcon(item));
         const text = makeHabitText(item.name, isGoal(item) ? "短期目標" : item.note);
         addMemo(text, dayNotes[item.id]); // 那天有寫筆記就顯示
         row.appendChild(text);
@@ -1402,6 +1415,13 @@ function restoreHabit(item) {
 // 永久刪除：項目本身、它的打卡紀錄和筆記一起刪掉，不能復原
 // ids：要刪掉的項目代號（清空垃圾桶時會一次給好幾個）
 function purgeHabits(ids) {
+    // 永久刪除的項目如果有自己的圖片，圖片也一起刪掉
+    loadAllHabits().forEach(function(h) {
+        if (ids.includes(h.id) && h.image) {
+            deleteImage(h.image).catch(function(error) { console.error(error); });
+        }
+    });
+
     // 這裡不能用 saveHabits（它會把已刪除的項目補回去），直接寫進 localStorage
     const habits = loadAllHabits().filter(function(h) { return !ids.includes(h.id); });
     localStorage.setItem("habits", JSON.stringify(habits));
@@ -1441,7 +1461,7 @@ function renderTrash() {
     trash.forEach(function(item) {
         const row = document.createElement("li");
         row.className = "setting-row";
-        row.appendChild(makeIcon(item.icon));
+        row.appendChild(makeItemIcon(item));
         row.appendChild(makeHabitText(item.name,
             typeName[item.type || "habit"] + " · " + item.deleted.slice(5).replace("-", "/") + " 刪除"));
 
@@ -1554,6 +1574,57 @@ iconSelect.addEventListener("click", function() {
     toggleIconMenu(iconMenu.hidden); // 關著就打開，開著就關掉
 });
 
+// ===== 自己的圖片（新增 / 編輯視窗裡） =====
+// 按「儲存」之前都只是暫存，按「取消」就什麼都不會改
+let originalImage = null; // 打開視窗時，這個項目原本的圖片代號（新增 = null）
+let pickedImage = null;   // 現在選的圖片：null = 沒有圖片；{ id } = 沿用原本的；{ blob } = 剛裁好的新圖片
+let pickedPreviewURL = null;
+
+function showPickedImage() {
+    const preview = document.getElementById("image-preview");
+    if (pickedPreviewURL) {
+        URL.revokeObjectURL(pickedPreviewURL);
+        pickedPreviewURL = null;
+    }
+    let src = null;
+    if (pickedImage && pickedImage.blob) {
+        pickedPreviewURL = URL.createObjectURL(pickedImage.blob);
+        src = pickedPreviewURL;
+    } else if (pickedImage && pickedImage.id) {
+        src = imageURLs[pickedImage.id] || null;
+    }
+    preview.hidden = (src === null);
+    if (src) {
+        preview.src = src;
+    } else {
+        preview.removeAttribute("src");
+    }
+    document.getElementById("image-pick-text").textContent = src ? "換一張" : "從相簿選擇";
+    document.getElementById("image-remove-btn").hidden = (pickedImage === null);
+}
+
+document.getElementById("image-pick-btn").addEventListener("click", function() {
+    document.getElementById("image-file").click();
+});
+
+document.getElementById("image-file").addEventListener("change", async function(event) {
+    const file = event.target.files[0];
+    event.target.value = ""; // 清掉，下次選同一張也會觸發
+    if (!file) {
+        return;
+    }
+    const blob = await openCropper(file);
+    if (blob) {
+        pickedImage = { blob: blob };
+        showPickedImage();
+    }
+});
+
+document.getElementById("image-remove-btn").addEventListener("click", function() {
+    pickedImage = null;
+    showPickedImage();
+});
+
 // ===== 新增 / 編輯視窗（共用同一個視窗） =====
 const dialog = document.getElementById("add-dialog");
 let addingType = "habit"; // 現在要新增的是 "habit"（習慣）、"goal"（短期目標）還是 "todo"（待辦事項）
@@ -1593,6 +1664,9 @@ function openAddDialog(type, item) {
 
     document.getElementById("add-form").reset(); // 清空上次打的字
     toggleIconMenu(false);
+    originalImage = (isEdit && item.image) ? item.image : null;
+    pickedImage = originalImage ? { id: originalImage } : null;
+    showPickedImage();
     document.getElementById("dialog-title").textContent = (isEdit ? "編輯" : "新增") + typeName;
     document.getElementById("submit-btn").textContent = isEdit ? "儲存" : "新增";
     document.getElementById("date-fields").hidden = !hasDates; // 長期習慣不用選日期（從新增那天開始）
@@ -1678,6 +1752,20 @@ document.getElementById("add-form").addEventListener("submit", function(event) {
         if (!document.getElementById("input-streak").checked) {
             newItem.inStreak = false; // 只有關掉才記下來；沒有這個欄位 = 算入連續打卡
         }
+    }
+
+    // 自己的圖片：新裁好的才要存；換掉或移除的話，原本那張就用不到了
+    if (pickedImage && pickedImage.blob) {
+        newItem.image = newImageId();
+        saveImage(newItem.image, pickedImage.blob).catch(function(error) {
+            console.error(error);
+            alert("圖片儲存失敗：" + error.message);
+        });
+    } else if (pickedImage && pickedImage.id) {
+        newItem.image = pickedImage.id;
+    }
+    if (originalImage && originalImage !== newItem.image) {
+        deleteImage(originalImage).catch(function(error) { console.error(error); });
     }
 
     const habits = loadHabits();
@@ -1854,6 +1942,9 @@ function findBackupProblem(data) {
         ids.push(item.id);
         if (typeof item.name !== "string") return where + "沒有名稱";
         if (!isStringOrMissing(item.note) || !isStringOrMissing(item.icon)) return where + "的說明或圖示格式不對";
+        if (item.image !== undefined && !(typeof item.image === "string" && /^img_\d+$/.test(item.image))) {
+            return where + "的圖片代號格式不對";
+        }
         if (item.type !== undefined && item.type !== "goal" && item.type !== "todo") return where + "的種類不對";
         if (![item.created, item.start, item.end, item.done, item.deleted].every(isDateOrMissing)) {
             return where + "的日期格式不對";
@@ -2024,4 +2115,5 @@ migrateOldData();
 removeUnknownRecords();
 fillCreatedDates();
 render();
+loadAllImages().then(render); // 自己的圖片讀出來之後再畫一次（讀圖片要一點時間，先用圖示頂著）
 document.getElementById("app-version").textContent = "版本 v" + APP_VERSION;

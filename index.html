@@ -26,7 +26,7 @@
 
     <!-- ?v=31 是版本號：每次改了 CSS 或 JS 就把數字 +1，手機才會重新下載新檔案
          記得 script.js 最上面的 APP_VERSION 也要改成一樣的數字（設定頁最下面會顯示） -->
-    <link rel="stylesheet" href="style.css?v=38">
+    <link rel="stylesheet" href="style.css?v=39">
 </head>
 <body>
 
@@ -255,6 +255,17 @@
                 </button>
                 <div class="icon-menu" id="icon-menu" hidden></div>
             </div>
+            <!-- 自己的圖片：有圖片就顯示圖片，沒有（或換了裝置找不到）就顯示上面的圖示 -->
+            <div class="field">自己的圖片（可以不選）
+                <div class="image-pick">
+                    <img id="image-preview" class="image-preview" alt="" hidden>
+                    <button type="button" class="image-pick-btn" id="image-pick-btn">
+                        <i data-lucide="image-plus"></i><span id="image-pick-text">從相簿選擇</span>
+                    </button>
+                    <button type="button" class="image-remove-btn" id="image-remove-btn" hidden>移除</button>
+                </div>
+                <input type="file" id="image-file" accept="image/*" hidden>
+            </div>
             <!-- 只有短期目標、待辦事項才會顯示開始和結束日期（長期習慣從新增那天開始） -->
             <div class="date-fields" id="date-fields">
                 <label class="field">開始日期
@@ -289,6 +300,24 @@
                 <button type="submit" class="primary" id="submit-btn">新增</button>
             </div>
         </form>
+    </dialog>
+
+    <!-- ===== 裁剪圖片（框不動，拖動、縮放圖片；程式在 image-crop.js） ===== -->
+    <dialog id="crop-dialog" class="crop-dialog">
+        <div class="crop-top">
+            <button type="button" class="crop-icon-btn" id="crop-cancel" aria-label="取消"><i data-lucide="arrow-left"></i></button>
+            <h3>裁剪及旋轉</h3>
+            <span class="crop-icon-btn"></span>
+        </div>
+        <div class="crop-stage" id="crop-stage">
+            <img id="crop-image" class="crop-image" alt="" draggable="false">
+            <div class="crop-frame" id="crop-frame"></div>
+        </div>
+        <p class="crop-hint">拖動圖片調整位置，兩指縮放</p>
+        <div class="crop-bottom">
+            <button type="button" class="crop-rotate" id="crop-rotate"><i data-lucide="rotate-cw"></i>旋轉</button>
+            <button type="button" class="crop-done" id="crop-done">完成</button>
+        </div>
     </dialog>
 
     <!-- ===== 寫筆記（按項目右邊的筆記按鈕打開） ===== -->
@@ -344,8 +373,9 @@
         <button class="tab" data-page="settings"><i data-lucide="settings"></i>設定</button>
     </nav>
 
-<script src="script.js?v=38"></script>
+<script src="image-crop.js?v=39"></script>
+<script src="script.js?v=39"></script>
 <!-- Firebase 登入：用 type="module" 才能在裡面用 import -->
-<script type="module" src="firebase.js?v=38"></script>
+<script type="module" src="firebase.js?v=39"></script>
 </body>
 </html>
